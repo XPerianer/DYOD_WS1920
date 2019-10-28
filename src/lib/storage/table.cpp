@@ -23,8 +23,7 @@ Table::Table(const uint32_t chunk_size) : _max_chunk_size(chunk_size) {
 }
 
 void Table::add_column(const std::string& name, const std::string& type) {
-  // TODO - match with piazza result
-  DebugAssert(row_count() == 0, "We currently assume that you can only add columns when no data has been added");
+  DebugAssert(row_count() == 0, "You can only add columns when no data has been added");
 
   _column_names.push_back(name);
   _column_types.push_back(type);
