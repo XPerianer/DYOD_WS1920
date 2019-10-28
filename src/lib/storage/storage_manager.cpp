@@ -56,7 +56,7 @@ void StorageManager::print(std::ostream& out) const {
 
     out << name << " with "
       << column_count << (column_count == 1 ? " column" : " columns")
-      << " and " << row_count << (row_count == 1 ? " row" : " rows")
+      << " and " << row_count << (row_count == 1 ? " row" : " rows") << "."
       << std::endl;
   }
 }

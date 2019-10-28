@@ -50,4 +50,24 @@ TEST_F(StorageStorageManagerTest, HasTable) {
   EXPECT_EQ(sm.has_table("first_table"), true);
 }
 
+TEST_F(StorageStorageManagerTest, TableNames) {
+  auto& sm = StorageManager::get();
+  std::vector<std::string> expected_values {"first_table", "second_table"};
+  EXPECT_EQ(sm.table_names(), expected_values);
+}
+
+TEST_F(StorageStorageManagerTest, Print) {
+  auto& sm = StorageManager::get();
+  auto t1 = sm.get_table("first_table");
+  t1->add_column("test_column", "string");
+
+  std::string expected_result = "Database contains 2 tables.\n"
+    "first_table with 1 column and 0 rows.\n"
+    "second_table with 0 columns and 0 rows.\n";
+
+  std::ostringstream stream;
+  sm.print(stream);
+
+  EXPECT_EQ(stream.str(), expected_result);
+}
 }  // namespace opossum
