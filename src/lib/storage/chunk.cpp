@@ -41,7 +41,7 @@ uint16_t Chunk::column_count() const {
 }
 
 uint32_t Chunk::size() const {
-  if (!_segments.size()) {
+  if (_segments.size() == 0) {
     return 0;
   }
 

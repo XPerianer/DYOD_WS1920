@@ -19,9 +19,9 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 }
 
 void StorageManager::drop_table(const std::string& name) {
-  size_t elements_erased = _tables.erase(name);
+  size_t elements_erased = _tables.erase(name);  // Can be 0 or 1.
 
-  if (elements_erased != 1) {
+  if (elements_erased == 0) {
     throw std::runtime_error("Invalid table name specified for drop_table");
   }
 }
