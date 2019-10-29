@@ -81,7 +81,7 @@ class Table : private Noncopyable {
   std::vector<std::string> _column_names;
   std::vector<std::string> _column_types;
 
-  const uint32_t _max_chunk_size;
+  uint32_t _max_chunk_size;
 
   void _append_new_chunk();
 };
