@@ -13,13 +13,13 @@
 namespace opossum {
 
 class StorageTableTest : public BaseTest {
-  protected:
-    void SetUp() override {
-      t.add_column("col_1", "int");
-      t.add_column("col_2", "string");
-    }
+ protected:
+  void SetUp() override {
+    t.add_column("col_1", "int");
+    t.add_column("col_2", "string");
+  }
 
-    Table t{2};
+  Table t{2};
 };
 
 TEST_F(StorageTableTest, ChunkCount) {
@@ -71,4 +71,4 @@ TEST_F(StorageTableTest, GetColumnIdByName) {
 
 TEST_F(StorageTableTest, GetChunkSize) { EXPECT_EQ(t.max_chunk_size(), 2u); }
 
-} // namespace opossum
+}  // namespace opossum

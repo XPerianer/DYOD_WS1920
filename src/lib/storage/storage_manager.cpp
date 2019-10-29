@@ -14,9 +14,7 @@ StorageManager& StorageManager::get() {
   return instance;
 }
 
-void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) {
-  _tables.insert({name, table});
-}
+void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) { _tables.insert({name, table}); }
 
 void StorageManager::drop_table(const std::string& name) {
   size_t elements_erased = _tables.erase(name);  // Can be 0 or 1.
@@ -26,18 +24,14 @@ void StorageManager::drop_table(const std::string& name) {
   }
 }
 
-std::shared_ptr<Table> StorageManager::get_table(const std::string& name) const {
-  return _tables.at(name);
-}
+std::shared_ptr<Table> StorageManager::get_table(const std::string& name) const { return _tables.at(name); }
 
-bool StorageManager::has_table(const std::string& name) const {
-  return _tables.count(name);
-}
+bool StorageManager::has_table(const std::string& name) const { return _tables.count(name); }
 
 std::vector<std::string> StorageManager::table_names() const {
   std::vector<std::string> result;
   result.reserve(_tables.size());
-  for(auto const& table_pair : _tables) {
+  for (auto const& table_pair : _tables) {
     result.push_back(table_pair.first);
   }
 
@@ -54,15 +48,11 @@ void StorageManager::print(std::ostream& out) const {
     size_t column_count = table->column_count();
     size_t row_count = table->row_count();
 
-    out << name << " with "
-      << column_count << (column_count == 1 ? " column" : " columns")
-      << " and " << row_count << (row_count == 1 ? " row" : " rows") << "."
-      << std::endl;
+    out << name << " with " << column_count << (column_count == 1 ? " column" : " columns") << " and " << row_count
+        << (row_count == 1 ? " row" : " rows") << "." << std::endl;
   }
 }
 
-void StorageManager::reset() {
-  _tables.clear();
-}
+void StorageManager::reset() { _tables.clear(); }
 
 }  // namespace opossum

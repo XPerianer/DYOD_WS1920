@@ -46,9 +46,8 @@ uint16_t Table::column_count() const {
 
 uint64_t Table::row_count() const {
   // static cast on the 0 is needed to make the compiler pick the correct type for the accumulate template.
-  return std::accumulate(_chunks.cbegin(), _chunks.cend(), static_cast<uint64_t>(0), [](uint64_t sum, const Chunk& chunk){
-      return sum + chunk.size();
-  });
+  return std::accumulate(_chunks.cbegin(), _chunks.cend(), static_cast<uint64_t>(0),
+                         [](uint64_t sum, const Chunk& chunk) { return sum + chunk.size(); });
 }
 
 ChunkID Table::chunk_count() const {
@@ -58,7 +57,7 @@ ChunkID Table::chunk_count() const {
 
 ColumnID Table::column_id_by_name(const std::string& column_name) const {
   auto column_it = std::find(_column_names.cbegin(), _column_names.cend(), column_name);
-  if (column_it == _column_names.cend ()) {
+  if (column_it == _column_names.cend()) {
     throw std::runtime_error("Invalid column name");
   }
 
@@ -66,29 +65,17 @@ ColumnID Table::column_id_by_name(const std::string& column_name) const {
   return static_cast<ColumnID>(std::distance(_column_names.cbegin(), column_it));
 }
 
-uint32_t Table::max_chunk_size() const {
-  return _max_chunk_size;
-}
+uint32_t Table::max_chunk_size() const { return _max_chunk_size; }
 
-const std::vector<std::string>& Table::column_names() const {
-  return _column_names;
-}
+const std::vector<std::string>& Table::column_names() const { return _column_names; }
 
-const std::string& Table::column_name(ColumnID column_id) const {
-  return _column_names.at(column_id);
-}
+const std::string& Table::column_name(ColumnID column_id) const { return _column_names.at(column_id); }
 
-const std::string& Table::column_type(ColumnID column_id) const {
-  return _column_types.at(column_id);
-}
+const std::string& Table::column_type(ColumnID column_id) const { return _column_types.at(column_id); }
 
-Chunk& Table::get_chunk(ChunkID chunk_id) {
-  return _chunks.at(chunk_id);
-}
+Chunk& Table::get_chunk(ChunkID chunk_id) { return _chunks.at(chunk_id); }
 
-const Chunk& Table::get_chunk(ChunkID chunk_id) const {
-  return _chunks.at(chunk_id);
-}
+const Chunk& Table::get_chunk(ChunkID chunk_id) const { return _chunks.at(chunk_id); }
 
 void Table::_append_new_chunk() {
   auto& new_chunk = _chunks.emplace_back();

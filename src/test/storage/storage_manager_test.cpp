@@ -1,4 +1,6 @@
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "../base_test.hpp"
 #include "gtest/gtest.h"
@@ -52,7 +54,7 @@ TEST_F(StorageStorageManagerTest, HasTable) {
 
 TEST_F(StorageStorageManagerTest, TableNames) {
   auto& sm = StorageManager::get();
-  std::vector<std::string> expected_values {"first_table", "second_table"};
+  std::vector<std::string> expected_values{"first_table", "second_table"};
   EXPECT_EQ(sm.table_names(), expected_values);
 }
 
@@ -61,9 +63,10 @@ TEST_F(StorageStorageManagerTest, Print) {
   auto t1 = sm.get_table("first_table");
   t1->add_column("test_column", "string");
 
-  std::string expected_result = "Database contains 2 tables.\n"
-    "first_table with 1 column and 0 rows.\n"
-    "second_table with 0 columns and 0 rows.\n";
+  std::string expected_result =
+      "Database contains 2 tables.\n"
+      "first_table with 1 column and 0 rows.\n"
+      "second_table with 0 columns and 0 rows.\n";
 
   std::ostringstream stream;
   sm.print(stream);
