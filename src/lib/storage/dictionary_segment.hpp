@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <set>
 
 #include "all_type_variant.hpp"
 #include "types.hpp"
@@ -48,8 +49,6 @@ class DictionarySegment : public BaseSegment {
     _attribute_vector->reserve(value_segment->size());
 
     for (const auto& value : value_segment->values()) {
-      // TODO: I think this is guaranteed to be correct. @Dominik, @Leo, can you validate?
-      // TODO: If we agree on that, we can remove some of the asserts.
       // We inserted every value in the set, so we expect every value to exist in the set.
       // Also, the set is ordered by the "less" comparator, so the constructed
       // _dictionary vector should already be sorted. And we can find the index for each
@@ -57,13 +56,7 @@ class DictionarySegment : public BaseSegment {
       // offset for the vector.
 
       auto it = distinct_values.find(value);
-
-      DebugAssert(it != distinct_values.cend(), "Richard fucked up");
-
       size_t index = std::distance(distinct_values.cbegin(), it);
-
-      DebugAssert(_dictionary->at(index) == value, "Richard fucked up");
-
       _attribute_vector->push_back(index);
     }
   }
