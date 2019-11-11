@@ -10,12 +10,9 @@
 #include "all_type_variant.hpp"
 #include "types.hpp"
 #include "value_segment.hpp"
+#include "fixed_size_attribute_vector.hpp"
 
 namespace opossum {
-
-// TODO: Implement FixedSizeAttributeVector and use that instead of std::vector<uint32_t> here
-/* class BaseAttributeVector; */
-typedef std::vector<uint32_t> BaseAttributeVector;
 
 class BaseSegment;
 
@@ -26,6 +23,14 @@ constexpr ValueID INVALID_VALUE_ID{std::numeric_limits<ValueID::base_type>::max(
 // Dictionary is a specific segment type that stores all its values in a vector
 template <typename T>
 class DictionarySegment : public BaseSegment {
+ private:
+  template <typename uintX_t>
+  std::shared_ptr<BaseAttributeVector> _make_fixed_size_attribute_vector(size_t size) {
+      auto attr_vector = std::make_shared<FixedSizeAttributeVector<uintX_t>>();
+      attr_vector->reserve(size);
+      return attr_vector;
+  }
+
  public:
   /**
    * Creates a Dictionary segment from a given value segment.
@@ -45,19 +50,24 @@ class DictionarySegment : public BaseSegment {
     // (thread safety?)
     _dictionary = std::make_shared<std::vector<T>>(distinct_values.cbegin(), distinct_values.cend());
 
-    _attribute_vector = std::make_shared<std::vector<uint32_t>>();
-    _attribute_vector->reserve(value_segment->size());
+    auto values = value_segment->values();
+    auto value_size = values.size();
+    size_t dic_size = _dictionary->size();
 
-    for (const auto& value : value_segment->values()) {
+    if (dic_size <= (1 << 8)) {
+        _attribute_vector = _make_fixed_size_attribute_vector<uint8_t>(value_size);
+    }
+
+    for (size_t value_index = 0; value_index < value_size; value_index++) {
       // We inserted every value in the set, so we expect every value to exist in the set.
       // Also, the set is ordered by the "less" comparator, so the constructed
       // _dictionary vector should already be sorted. And we can find the index for each
       // value in the dictionary in O(log(n)) by simply searching the set and using that
       // offset for the vector.
 
-      auto it = distinct_values.find(value);
-      size_t index = std::distance(distinct_values.cbegin(), it);
-      _attribute_vector->push_back(index);
+      auto it = distinct_values.find(values.at(value_index));
+      size_t dic_index = std::distance(distinct_values.cbegin(), it);
+      _attribute_vector->set(value_index, ValueID{dic_index});
     }
   }
 
@@ -66,11 +76,11 @@ class DictionarySegment : public BaseSegment {
 
   // return the value at a certain position. If you want to write efficient operators, back off!
   AllTypeVariant operator[](const ChunkOffset chunk_offset) const override {
-    return (*_dictionary)[_attribute_vector->at(chunk_offset)];
+    return (*_dictionary)[_attribute_vector->get(chunk_offset)];
   }
 
   // return the value at a certain position.
-  T get(const size_t chunk_offset) const { return (*_dictionary)[_attribute_vector->at(chunk_offset)]; }
+  T get(const size_t chunk_offset) const { return (*_dictionary)[_attribute_vector->get(chunk_offset)]; }
 
   // dictionary segments are immutable
   void append(const AllTypeVariant&) override {
@@ -147,7 +157,7 @@ class DictionarySegment : public BaseSegment {
     // compile-time to find out what type the expression would evaluate to.
     return (
       sizeof(_dictionary->at(0)) * _dictionary->size()
-      + sizeof(_attribute_vector->at(0)) * _attribute_vector->size()
+      + sizeof(_attribute_vector->get(0)) * _attribute_vector->size()
     );
   }
 
