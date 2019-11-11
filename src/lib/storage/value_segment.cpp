@@ -37,8 +37,10 @@ const std::vector<T>& ValueSegment<T>::values() const {
 
 template <typename T>
 size_t ValueSegment<T>::estimate_memory_usage() const {
-  // Implementation goes here
-  return 0;
+  // using _values[0] is legal here even if the vector is empty as the
+  // sizeof operator does not evaluate the expression, it is just used at
+  // compile-time to find out what type the expression would evaluate to.
+  return sizeof(_values[0]) * _values.size();
 }
 
 EXPLICITLY_INSTANTIATE_DATA_TYPES(ValueSegment);
