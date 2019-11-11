@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "dictionary_segment.hpp"
 #include "value_segment.hpp"
 
 #include "resolve_type.hpp"
@@ -87,5 +88,17 @@ void Table::_append_new_chunk() {
   _chunks.push_back(std::move(new_chunk));
 }
 
-void Table::compress_chunk(ChunkID chunk_id) { throw std::runtime_error("Implement Table::compress_chunk"); }
+void Table::compress_chunk(ChunkID chunk_id) {
+  const auto& uncompressed_chunk = get_chunk(chunk_id);
+  Chunk compressed_chunk = Chunk();
+
+  const auto col_count = column_count();
+  for (ColumnID column_id = ColumnID{0}; column_id < col_count; ++column_id) {
+    const auto uncompressed_segment = uncompressed_chunk.get_segment(column_id);
+    compressed_chunk.add_segment(
+        make_shared_by_data_type<BaseSegment, DictionarySegment>(column_type(column_id), uncompressed_segment));
+  }
+
+  _chunks[chunk_id] = std::move(compressed_chunk);
+}
 }  // namespace opossum
