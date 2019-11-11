@@ -78,4 +78,11 @@ TEST_F(StorageValueSegmentTest, GetValues) {
 
   EXPECT_TRUE(expected_values == values);
 }
+
+// TEST_F(StorageValueSegmentTest, MemoryUsage) {
+//   int_value_segment.append(1);
+//   EXPECT_EQ(int_value_segment.estimate_memory_usage(), size_t{4});
+//   int_value_segment.append(2);
+//   EXPECT_EQ(int_value_segment.estimate_memory_usage(), size_t{8});
+// }
 }  // namespace opossum

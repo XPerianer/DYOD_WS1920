@@ -86,4 +86,6 @@ void Table::_append_new_chunk() {
 
   _chunks.push_back(std::move(new_chunk));
 }
+
+void Table::compress_chunk(ChunkID chunk_id) { throw std::runtime_error("Implement Table::compress_chunk"); }
 }  // namespace opossum
