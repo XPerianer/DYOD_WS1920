@@ -29,6 +29,12 @@ TEST_F(StorageStorageManagerTest, GetTable) {
   EXPECT_THROW(sm.get_table("third_table"), std::exception);
 }
 
+TEST_F(StorageStorageManagerTest, AddTable) {
+  auto& sm = StorageManager::get();
+  auto t = std::make_shared<Table>();
+  EXPECT_THROW(sm.add_table("first_table", t), std::exception);
+}
+
 TEST_F(StorageStorageManagerTest, DropTable) {
   auto& sm = StorageManager::get();
   sm.drop_table("first_table");

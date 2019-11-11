@@ -14,14 +14,18 @@ StorageManager& StorageManager::get() {
   return instance;
 }
 
-void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) { _tables.insert({name, table}); }
+void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) {
+  auto return_value = _tables.insert({name, table});
+
+  if (!return_value.second) {
+    throw std::runtime_error("add_table called with already existing table name");
+  }
+}
 
 void StorageManager::drop_table(const std::string& name) {
   size_t elements_erased = _tables.erase(name);  // Can be 0 or 1.
 
-  if (elements_erased == 0) {
-    throw std::runtime_error("Invalid table name specified for drop_table");
-  }
+  DebugAssert(elements_erased != 0, "Invalid table name specified for drop_table");
 }
 
 std::shared_ptr<Table> StorageManager::get_table(const std::string& name) const { return _tables.at(name); }
@@ -31,7 +35,7 @@ bool StorageManager::has_table(const std::string& name) const { return _tables.c
 std::vector<std::string> StorageManager::table_names() const {
   std::vector<std::string> result;
   result.reserve(_tables.size());
-  for (auto const& table_pair : _tables) {
+  for (const auto& table_pair : _tables) {
     result.push_back(table_pair.first);
   }
 

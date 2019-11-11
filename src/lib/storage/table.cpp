@@ -78,10 +78,12 @@ Chunk& Table::get_chunk(ChunkID chunk_id) { return _chunks.at(chunk_id); }
 const Chunk& Table::get_chunk(ChunkID chunk_id) const { return _chunks.at(chunk_id); }
 
 void Table::_append_new_chunk() {
-  auto& new_chunk = _chunks.emplace_back();
+  Chunk new_chunk;
 
   for (const auto& column_type : _column_types) {
     new_chunk.add_segment(make_shared_by_data_type<BaseSegment, ValueSegment>(column_type));
   }
+
+  _chunks.push_back(std::move(new_chunk));
 }
 }  // namespace opossum
