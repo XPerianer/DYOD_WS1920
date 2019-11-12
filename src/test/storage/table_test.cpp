@@ -1,3 +1,4 @@
+#include <storage/dictionary_segment.hpp>
 #include <limits>
 #include <memory>
 #include <string>
@@ -70,5 +71,12 @@ TEST_F(StorageTableTest, GetColumnIdByName) {
 }
 
 TEST_F(StorageTableTest, GetChunkSize) { EXPECT_EQ(t.max_chunk_size(), 2u); }
+
+TEST_F(StorageTableTest, CompressChunkReplacesWithDictionarySegment) {
+  t.compress_chunk(ChunkID{0});
+  auto& chunk = t.get_chunk(ChunkID{0});
+  auto segment = chunk.get_segment(ColumnID{0});
+  EXPECT_NO_THROW(std::dynamic_pointer_cast<std::shared_ptr<DictionarySegment<int>>>(segment));
+}
 
 }  // namespace opossum
