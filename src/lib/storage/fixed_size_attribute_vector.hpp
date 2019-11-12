@@ -3,13 +3,10 @@
 #include <limits>
 #include <vector>
 
-#include <utils/assert.hpp>
-
 #include "base_attribute_vector.hpp"
 
 namespace opossum {
 
-// TODO: test dis
 template <typename uintX_t>
 class FixedSizeAttributeVector : public BaseAttributeVector {
  public:

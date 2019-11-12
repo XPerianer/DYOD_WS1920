@@ -40,9 +40,9 @@ class DictionarySegment : public BaseSegment {
     // Convert the set into a ordered vector
     _dictionary = std::make_shared<std::vector<T>>(distinct_values.cbegin(), distinct_values.cend());
 
-    auto values = value_segment->values();
-    auto value_size = values.size();
-    auto dic_size = _dictionary->size();
+    const auto values = value_segment->values();
+    const size_t value_size = values.size();
+    const size_t dic_size = _dictionary->size();
 
     if (dic_size <= std::numeric_limits<uint8_t>::max()) {
       _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint8_t>>(value_size);
@@ -97,18 +97,17 @@ class DictionarySegment : public BaseSegment {
     auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
+      return ValueID{std::distance(_dictionary->cbegin(), it)};
     }
     return INVALID_VALUE_ID;
   }
 
   // same as lower_bound(T), but accepts an AllTypeVariant
   ValueID lower_bound(const AllTypeVariant& value) const {
-    // TODO: Do we want to deduplicate this? Should this call the other lower_bound method?
     auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
+      return ValueID{std::distance(_dictionary->cbegin(), it)};
     }
     return INVALID_VALUE_ID;
   }
@@ -119,18 +118,17 @@ class DictionarySegment : public BaseSegment {
     auto it = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
+      return ValueID{std::distance(_dictionary->cbegin(), it)};
     }
     return INVALID_VALUE_ID;
   }
 
   // same as upper_bound(T), but accepts an AllTypeVariant
   ValueID upper_bound(const AllTypeVariant& value) const {
-    // TODO: Do we want to deduplicate this? Should this call the other upper_bound method?
     auto it = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
+      return ValueID{std::distance(_dictionary->cbegin(), it)};
     }
     return INVALID_VALUE_ID;
   }
