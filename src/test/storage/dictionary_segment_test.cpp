@@ -57,8 +57,8 @@ TEST_F(StorageDictionarySegmentTest, LowerUpperBoundAllTypeVariant) {
 
   DictionarySegment<int> dictionary_segment(vs_int);
 
-  EXPECT_EQ(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));
-  EXPECT_EQ(dictionary_segment.upper_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));
+  EXPECT_EQ(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(4)), static_cast<ValueID>(0));
+  EXPECT_EQ(dictionary_segment.upper_bound(static_cast<AllTypeVariant>(4)), static_cast<ValueID>(1));
 
   // With the typed function, the float will be casted to int, so 5.5 will become 5, which should be found
   // With the AllTypeVariant overload, no casting should happen
