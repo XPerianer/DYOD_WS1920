@@ -52,10 +52,10 @@ TEST_F(StorageDictionarySegmentTest, CompressSegmentString) {
 }
 
 TEST_F(StorageDictionarySegmentTest, LowerUpperBoundAllTypeVariant) {
-  vc_int->append(4);
-  vc_int->append(5);
+  vs_int->append(4);
+  vs_int->append(5);
 
-  DictionarySegment<int> dictionary_segment(vc_int);
+  DictionarySegment<int> dictionary_segment(vs_int);
 
   EXPECT_EQ(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));
   EXPECT_EQ(dictionary_segment.upper_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));

@@ -106,7 +106,7 @@ class DictionarySegment : public BaseSegment {
 
   // same as lower_bound(T), but accepts an AllTypeVariant
   ValueID lower_bound(const AllTypeVariant& value) const {
-    return lower_bound(get<T>(value));
+    return lower_bound(opossum::get<T>(value));
   }
 
   // returns the first value ID that refers to a value > the search value
@@ -122,7 +122,7 @@ class DictionarySegment : public BaseSegment {
 
   // same as upper_bound(T), but accepts an AllTypeVariant
   ValueID upper_bound(const AllTypeVariant& value) const {
-    return upper_bound(get<T>(value));
+    return upper_bound(opossum::get<T>(value));
   }
 
   // return the number of unique_values (dictionary entries)
