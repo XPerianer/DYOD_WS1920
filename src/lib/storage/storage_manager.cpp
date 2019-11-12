@@ -25,7 +25,9 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 void StorageManager::drop_table(const std::string& name) {
   size_t elements_erased = _tables.erase(name);  // Can be 0 or 1.
 
-  DebugAssert(elements_erased != 0, "Invalid table name specified for drop_table");
+  if(!elements_erased) {
+    throw std::runtime_error("delete_table called with non-existant table");
+  }
 }
 
 std::shared_ptr<Table> StorageManager::get_table(const std::string& name) const { return _tables.at(name); }
