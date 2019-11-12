@@ -89,7 +89,7 @@ class Table : private Noncopyable {
 
   void _append_new_chunk();
 
-  static void compress_segment(std::promise<std::shared_ptr<BaseSegment>> promise, const std::string type,
-                               const std::shared_ptr<BaseSegment> uncompressed_segment);
+  static void _compress_segment(std::promise<std::shared_ptr<BaseSegment>> promise, const std::string type,
+                                const std::shared_ptr<BaseSegment> uncompressed_segment);
 };
 }  // namespace opossum
