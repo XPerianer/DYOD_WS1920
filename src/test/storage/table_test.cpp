@@ -1,4 +1,3 @@
-#include <storage/dictionary_segment.hpp>
 #include <limits>
 #include <memory>
 #include <string>
@@ -10,6 +9,7 @@
 
 #include "../lib/resolve_type.hpp"
 #include "../lib/storage/table.hpp"
+#include "storage/dictionary_segment.hpp"
 
 namespace opossum {
 
