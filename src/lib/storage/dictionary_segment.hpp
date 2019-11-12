@@ -30,6 +30,7 @@ class DictionarySegment : public BaseSegment {
    */
   explicit DictionarySegment(const std::shared_ptr<BaseSegment>& base_segment) {
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(base_segment);
+    DebugAssert(value_segment, "Invalid base segment passed to dictionary segment constructor");
 
     // First pass: Fill the dictionary
     // For faster lookup, we store the elements in a set first
@@ -38,18 +39,18 @@ class DictionarySegment : public BaseSegment {
       distinct_values.insert(value);
     }
 
-    // Convert the set into a ordered vector
+    // Build an ordered vector based on the set.
     _dictionary = std::make_shared<std::vector<T>>(distinct_values.cbegin(), distinct_values.cend());
 
     const auto values = value_segment->values();
     const size_t value_size = values.size();
-    const size_t dic_size = _dictionary->size();
+    const size_t dictionary_size = _dictionary->size();
 
-    if (dic_size <= std::numeric_limits<uint8_t>::max()) {
+    if (dictionary_size <= std::numeric_limits<uint8_t>::max()) {
       _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint8_t>>(value_size);
-    } else if (dic_size <= std::numeric_limits<uint16_t>::max()) {
+    } else if (dictionary_size <= std::numeric_limits<uint16_t>::max()) {
       _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint16_t>>(value_size);
-    } else if (dic_size <= std::numeric_limits<uint32_t>::max()) {
+    } else if (dictionary_size <= std::numeric_limits<uint32_t>::max()) {
       _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint32_t>>(value_size);
     }
     DebugAssert(_attribute_vector, "Too many unique values");
@@ -144,7 +145,7 @@ class DictionarySegment : public BaseSegment {
     // using at(0) is legal here even if the vector is empty as the
     // sizeof operator does not evaluate the expression, it is just used at
     // compile-time to find out what type the expression would evaluate to.
-    return (sizeof(_dictionary->at(0)) * _dictionary->size() + _attribute_vector->width() * _attribute_vector->size());
+    return sizeof(_dictionary->at(0)) * _dictionary->size() + _attribute_vector->width() * _attribute_vector->size();
   }
 
  protected:

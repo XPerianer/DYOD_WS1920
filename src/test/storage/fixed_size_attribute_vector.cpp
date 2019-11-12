@@ -2,9 +2,9 @@
 
 #include "../../lib/storage/fixed_size_attribute_vector.hpp"
 
-class FixedSystemAttributeVectorTest : public ::testing::Test {};
+class FixedSizeAttributeVectorTest : public ::testing::Test {};
 
-TEST_F(FixedSystemAttributeVectorTest, GetAndSet) {
+TEST_F(FixedSizeAttributeVectorTest, GetAndSet) {
   opossum::FixedSizeAttributeVector<uint8_t> vec(3);
   vec.set(0, opossum::ValueID{3});
   vec.set(1, opossum::ValueID{8});
@@ -20,12 +20,12 @@ TEST_F(FixedSystemAttributeVectorTest, GetAndSet) {
   }
 }
 
-TEST_F(FixedSystemAttributeVectorTest, Size) {
+TEST_F(FixedSizeAttributeVectorTest, Size) {
   opossum::FixedSizeAttributeVector<uint8_t> vec(5);
   EXPECT_EQ(vec.size(), 5);
 }
 
-TEST_F(FixedSystemAttributeVectorTest, Width) {
+TEST_F(FixedSizeAttributeVectorTest, Width) {
   opossum::FixedSizeAttributeVector<uint8_t> vec8(1);
   opossum::FixedSizeAttributeVector<uint16_t> vec16(1);
   opossum::FixedSizeAttributeVector<uint32_t> vec32(1);
