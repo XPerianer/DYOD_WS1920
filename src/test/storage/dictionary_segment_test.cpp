@@ -51,6 +51,23 @@ TEST_F(StorageDictionarySegmentTest, CompressSegmentString) {
   EXPECT_EQ((*dict)[3], "Steve");
 }
 
+TEST_F(StorageDictionarySegmentTest, LowerUpperBoundAllTypeVariant) {
+  vc_int->append(4);
+  vc_int->append(5);
+
+  DictionarySegment<int> dictionary_segment(vc_int);
+
+  EXPECT_EQ(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));
+  EXPECT_EQ(dictionary_segment.upper_bound(static_cast<AllTypeVariant>(5)), static_cast<ValueID>(1));
+
+  // With the typed function, the float will be casted to int, so 5.5 will become 5, which should be found
+  // With the AllTypeVariant overload, no casting should happen
+  EXPECT_THROW(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(5.5)), std::exception);
+
+  // Same for upper_bound
+  EXPECT_THROW(dictionary_segment.lower_bound(static_cast<AllTypeVariant>(5.5)), std::exception);
+}
+
 TEST_F(StorageDictionarySegmentTest, LowerUpperBound) {
   std::shared_ptr<ValueSegment<int>> vs = std::make_shared<ValueSegment<int>>();
   for (int i = 0; i <= 10; i += 2) vs->append(i);

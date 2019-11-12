@@ -11,6 +11,7 @@
 #include "all_type_variant.hpp"
 #include "fixed_size_attribute_vector.hpp"
 #include "types.hpp"
+#include "type_cast.hpp"
 #include "value_segment.hpp"
 
 namespace opossum {
@@ -105,12 +106,7 @@ class DictionarySegment : public BaseSegment {
 
   // same as lower_bound(T), but accepts an AllTypeVariant
   ValueID lower_bound(const AllTypeVariant& value) const {
-    auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
-
-    if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
-    }
-    return INVALID_VALUE_ID;
+    return lower_bound(get<T>(value));
   }
 
   // returns the first value ID that refers to a value > the search value
@@ -126,12 +122,7 @@ class DictionarySegment : public BaseSegment {
 
   // same as upper_bound(T), but accepts an AllTypeVariant
   ValueID upper_bound(const AllTypeVariant& value) const {
-    auto it = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), value);
-
-    if (it != _dictionary->cend()) {
-      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
-    }
-    return INVALID_VALUE_ID;
+    return upper_bound(get<T>(value));
   }
 
   // return the number of unique_values (dictionary entries)
