@@ -31,7 +31,7 @@ class DictionarySegment : public BaseSegment {
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(base_segment);
 
     // First pass: Fill the dictionary
-    // For faster lookup, we store the elements in a set first and convert that to a vector afterwards
+    // For faster lookup, we store the elements in a set first
     std::set<T> distinct_values;
     for (const auto& value : value_segment->values()) {
       distinct_values.insert(value);
@@ -53,14 +53,14 @@ class DictionarySegment : public BaseSegment {
     }
     DebugAssert(_attribute_vector, "Too many unique values");
 
+    // Second pass: Fill the attribute vector
     for (size_t value_index = 0; value_index < value_size; value_index++) {
-      // We inserted every value in the set, so we expect every value to exist in the set.
-      // Also, the set is ordered by the "less" comparator, so the constructed
-      // _dictionary vector should already be sorted. And we can find the index for each
+      // We inserted every value in the set, so the value exists and the return value can not be set::end.
+      auto it = distinct_values.find(values.at(value_index));
+      // The set is ordered by the "less" comparator, so the constructed
+      // _dictionary vector is already sorted. We can find the index for each
       // value in the dictionary in O(log(n)) by simply searching the set and using that
       // offset for the vector.
-
-      auto it = distinct_values.find(values.at(value_index));
       size_t dic_index = std::distance(distinct_values.cbegin(), it);
       _attribute_vector->set(value_index, ValueID{dic_index});
     }
@@ -144,8 +144,7 @@ class DictionarySegment : public BaseSegment {
     // using at(0) is legal here even if the vector is empty as the
     // sizeof operator does not evaluate the expression, it is just used at
     // compile-time to find out what type the expression would evaluate to.
-    return (sizeof(_dictionary->at(0)) * _dictionary->size() +
-            sizeof(_attribute_vector->get(0)) * _attribute_vector->size());
+    return (sizeof(_dictionary->at(0)) * _dictionary->size() + _attribute_vector->width() * _attribute_vector->size());
   }
 
  protected:

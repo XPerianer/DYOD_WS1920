@@ -12,7 +12,10 @@ class FixedSizeAttributeVector : public BaseAttributeVector {
  public:
   explicit FixedSizeAttributeVector(size_t size) : _values_ids(size) {}
 
-  ValueID get(const size_t i) const override { return ValueID{_values_ids.at(i)}; }
+  ValueID get(const size_t i) const override {
+    DebugAssert(i < size(), "Index out of bounds");
+    return ValueID{_values_ids[i]};
+  }
 
   void set(const size_t i, const ValueID value_id) override {
     DebugAssert(i < size(), "Index out of bounds");
