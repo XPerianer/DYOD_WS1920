@@ -1,6 +1,6 @@
+#include <storage/dictionary_segment.hpp>
 #include <limits>
 #include <memory>
-#include <storage/dictionary_segment.hpp>
 #include <string>
 #include <utility>
 #include <vector>

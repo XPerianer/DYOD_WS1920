@@ -11,7 +11,6 @@
 
 namespace opossum {
 
-// TODO: Perhaps we should create an easily testable DictionarySegment here too
 class StorageDictionarySegmentTest : public ::testing::Test {
  protected:
   std::shared_ptr<ValueSegment<int>> vc_int = std::make_shared<ValueSegment<int>>();
@@ -110,27 +109,96 @@ TEST_F(StorageDictionarySegmentTest, ThrowsExceptionOnAppend) {
 }
 
 TEST_F(StorageDictionarySegmentTest, UniqueValuesCount) {
-  vc_int->append(1);
-  vc_int->append(2);
-  vc_int->append(2);
-  vc_int->append(3);
-  vc_int->append(3);
-  vc_int->append(3);
+  vc_int->append(4);
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
 
   DictionarySegment<int> ds(vc_int);
   EXPECT_EQ(ds.unique_values_count(), 3);
 }
 
 TEST_F(StorageDictionarySegmentTest, Size) {
-  vc_int->append(1);
-  vc_int->append(2);
-  vc_int->append(2);
-  vc_int->append(3);
-  vc_int->append(3);
-  vc_int->append(3);
+  vc_int->append(4);
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
 
   DictionarySegment<int> ds(vc_int);
   EXPECT_EQ(ds.size(), 6);
+}
+
+TEST_F(StorageDictionarySegmentTest, AccessValueByValueID) {
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(4);
+
+  DictionarySegment<int> ds(vc_int);
+  EXPECT_EQ(ds.value_by_value_id(ValueID{0}), 4);
+  EXPECT_EQ(ds.value_by_value_id(ValueID{1}), 5);
+  EXPECT_EQ(ds.value_by_value_id(ValueID{2}), 6);
+}
+
+TEST_F(StorageDictionarySegmentTest, AccessValueByValueIDThrowsException) {
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(4);
+
+  DictionarySegment<int> ds(vc_int);
+  EXPECT_THROW(ds.value_by_value_id(ValueID{3}), std::exception);
+}
+
+TEST_F(StorageDictionarySegmentTest, GetDictionary) {
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(4);
+
+  DictionarySegment<int> ds(vc_int);
+  auto dictionary = ds.dictionary();
+  EXPECT_EQ(dictionary->size(), 3);
+  EXPECT_EQ(dictionary->at(0), 4);
+}
+
+TEST_F(StorageDictionarySegmentTest, GetAttributeVector) {
+  vc_int->append(5);
+  vc_int->append(5);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(6);
+  vc_int->append(4);
+
+  DictionarySegment<int> ds(vc_int);
+  auto attribute_vector = ds.attribute_vector();
+  EXPECT_EQ(attribute_vector->size(), 6);
+  EXPECT_EQ(attribute_vector->get(0), 1);
+}
+
+TEST_F(StorageDictionarySegmentTest, EstimateMemoryUsage) {
+  DictionarySegment<int> ds_empty(vc_int);
+  EXPECT_EQ(ds_empty.estimate_memory_usage(), 0);
+
+  vc_int->append(0);
+  DictionarySegment<int> ds8(vc_int);
+  EXPECT_EQ(ds8.estimate_memory_usage(), 5);
+
+  for (int i = vc_int->size(); i < std::numeric_limits<uint8_t>::max() + 1; i++) {
+    vc_int->append(i);
+  }
+  DictionarySegment<int> ds16(vc_int);
+  EXPECT_EQ(ds16.estimate_memory_usage(), 1536);
 }
 
 }  // namespace opossum
