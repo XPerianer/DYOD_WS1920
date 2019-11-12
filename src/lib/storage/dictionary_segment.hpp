@@ -10,8 +10,8 @@
 
 #include "all_type_variant.hpp"
 #include "fixed_size_attribute_vector.hpp"
-#include "types.hpp"
 #include "type_cast.hpp"
+#include "types.hpp"
 #include "value_segment.hpp"
 
 namespace opossum {
@@ -105,9 +105,7 @@ class DictionarySegment : public BaseSegment {
   }
 
   // same as lower_bound(T), but accepts an AllTypeVariant
-  ValueID lower_bound(const AllTypeVariant& value) const {
-    return lower_bound(opossum::get<T>(value));
-  }
+  ValueID lower_bound(const AllTypeVariant& value) const { return lower_bound(opossum::get<T>(value)); }
 
   // returns the first value ID that refers to a value > the search value
   // returns INVALID_VALUE_ID if all values are smaller than or equal to the search value
@@ -121,9 +119,7 @@ class DictionarySegment : public BaseSegment {
   }
 
   // same as upper_bound(T), but accepts an AllTypeVariant
-  ValueID upper_bound(const AllTypeVariant& value) const {
-    return upper_bound(opossum::get<T>(value));
-  }
+  ValueID upper_bound(const AllTypeVariant& value) const { return upper_bound(opossum::get<T>(value)); }
 
   // return the number of unique_values (dictionary entries)
   size_t unique_values_count() const { return _dictionary->size(); }
