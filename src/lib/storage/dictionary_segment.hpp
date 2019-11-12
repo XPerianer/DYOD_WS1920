@@ -59,10 +59,10 @@ class DictionarySegment : public BaseSegment {
       // The set that we used to construct the _dictionary vector is ordered by the "less" comparator,
       // so the constructed _dictionary is already sorted. Thus, we can find the index for each
       // value in the dictionary in O(log(n)).
-      auto value = values.at(value_index);
-      auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
+      const auto& value = values[value_index];
+      const auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
       size_t dic_index = std::distance(_dictionary->cbegin(), it);
-      _attribute_vector->set(value_index, ValueID{dic_index});
+      _attribute_vector->set(value_index, static_cast<ValueID>(dic_index));
     }
   }
 
@@ -97,7 +97,7 @@ class DictionarySegment : public BaseSegment {
     auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return ValueID{std::distance(_dictionary->cbegin(), it)};
+      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
     }
     return INVALID_VALUE_ID;
   }
@@ -107,7 +107,7 @@ class DictionarySegment : public BaseSegment {
     auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return ValueID{std::distance(_dictionary->cbegin(), it)};
+      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
     }
     return INVALID_VALUE_ID;
   }
@@ -118,7 +118,7 @@ class DictionarySegment : public BaseSegment {
     auto it = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return ValueID{std::distance(_dictionary->cbegin(), it)};
+      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
     }
     return INVALID_VALUE_ID;
   }
@@ -128,7 +128,7 @@ class DictionarySegment : public BaseSegment {
     auto it = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), value);
 
     if (it != _dictionary->cend()) {
-      return ValueID{std::distance(_dictionary->cbegin(), it)};
+      return static_cast<ValueID>(std::distance(_dictionary->cbegin(), it));
     }
     return INVALID_VALUE_ID;
   }
