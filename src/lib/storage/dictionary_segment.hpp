@@ -23,14 +23,6 @@ constexpr ValueID INVALID_VALUE_ID{std::numeric_limits<ValueID::base_type>::max(
 // Dictionary is a specific segment type that stores all its values in a vector
 template <typename T>
 class DictionarySegment : public BaseSegment {
- private:
-  template <typename uintX_t>
-  std::shared_ptr<BaseAttributeVector> _make_fixed_size_attribute_vector(size_t size) {
-      auto attr_vector = std::make_shared<FixedSizeAttributeVector<uintX_t>>();
-      attr_vector->reserve(size);
-      return attr_vector;
-  }
-
  public:
   /**
    * Creates a Dictionary segment from a given value segment.
@@ -46,17 +38,20 @@ class DictionarySegment : public BaseSegment {
     }
 
     // Convert the set into a ordered vector
-    // TODO: Do we want to do some fill-then-swap stuff here instead of having an empty member
-    // (thread safety?)
     _dictionary = std::make_shared<std::vector<T>>(distinct_values.cbegin(), distinct_values.cend());
 
     auto values = value_segment->values();
     auto value_size = values.size();
-    size_t dic_size = _dictionary->size();
+    auto dic_size = _dictionary->size();
 
-    if (dic_size <= (1 << 8)) {
-        _attribute_vector = _make_fixed_size_attribute_vector<uint8_t>(value_size);
+    if (dic_size <= std::numeric_limits<uint8_t>::max()) {
+        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint8_t>>(value_size);
+    } else if (dic_size <= std::numeric_limits<uint16_t>::max()) {
+        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint16_t>>(value_size);
+    } else if (dic_size <= std::numeric_limits<uint32_t>::max()) {
+        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint32_t>>(value_size);
     }
+    DebugAssert(_attribute_vector, "Too many unique values");
 
     for (size_t value_index = 0; value_index < value_size; value_index++) {
       // We inserted every value in the set, so we expect every value to exist in the set.

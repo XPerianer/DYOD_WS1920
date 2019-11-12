@@ -13,6 +13,8 @@ namespace opossum {
 template <typename uintX_t>
 class FixedSizeAttributeVector : public BaseAttributeVector {
  public:
+    explicit FixedSizeAttributeVector(size_t size): _values_ids(size) {}
+
     ValueID get(const size_t i) const override {
         return ValueID{_values_ids.at(i)};
     }
@@ -20,15 +22,6 @@ class FixedSizeAttributeVector : public BaseAttributeVector {
     void set(const size_t i, const ValueID value_id) override {
         DebugAssert(i < size(), "Index out of bounds");
         _values_ids[i] = value_id;
-    }
-
-    void push_back(const ValueID value_id) {
-        DebugAssert(static_cast<size_t>(value_id) <= std::numeric_limits<uintX_t>::max(), "Value Id is too large for FixedSizeAttributeVector");
-        _values_ids.push_back(value_id);
-    }
-
-    void reserve(size_t new_cap) {
-        _values_ids.resize(new_cap);
     }
 
     size_t size() const override {
