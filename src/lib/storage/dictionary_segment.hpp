@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <set>
@@ -55,13 +56,12 @@ class DictionarySegment : public BaseSegment {
 
     // Second pass: Fill the attribute vector
     for (size_t value_index = 0; value_index < value_size; value_index++) {
-      // We inserted every value in the set, so the value exists and the return value can not be set::end.
-      auto it = distinct_values.find(values.at(value_index));
-      // The set is ordered by the "less" comparator, so the constructed
-      // _dictionary vector is already sorted. We can find the index for each
-      // value in the dictionary in O(log(n)) by simply searching the set and using that
-      // offset for the vector.
-      size_t dic_index = std::distance(distinct_values.cbegin(), it);
+      // The set that we used to construct the _dictionary vector is ordered by the "less" comparator,
+      // so the constructed _dictionary is already sorted. Thus, we can find the index for each
+      // value in the dictionary in O(log(n)).
+      auto value = values.at(value_index);
+      auto it = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), value);
+      size_t dic_index = std::distance(_dictionary->cbegin(), it);
       _attribute_vector->set(value_index, ValueID{dic_index});
     }
   }
