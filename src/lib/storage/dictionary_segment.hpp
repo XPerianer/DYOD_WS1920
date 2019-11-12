@@ -2,15 +2,15 @@
 
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
-#include <set>
 
 #include "all_type_variant.hpp"
+#include "fixed_size_attribute_vector.hpp"
 #include "types.hpp"
 #include "value_segment.hpp"
-#include "fixed_size_attribute_vector.hpp"
 
 namespace opossum {
 
@@ -45,11 +45,11 @@ class DictionarySegment : public BaseSegment {
     auto dic_size = _dictionary->size();
 
     if (dic_size <= std::numeric_limits<uint8_t>::max()) {
-        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint8_t>>(value_size);
+      _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint8_t>>(value_size);
     } else if (dic_size <= std::numeric_limits<uint16_t>::max()) {
-        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint16_t>>(value_size);
+      _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint16_t>>(value_size);
     } else if (dic_size <= std::numeric_limits<uint32_t>::max()) {
-        _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint32_t>>(value_size);
+      _attribute_vector = std::make_shared<FixedSizeAttributeVector<uint32_t>>(value_size);
     }
     DebugAssert(_attribute_vector, "Too many unique values");
 
@@ -136,24 +136,18 @@ class DictionarySegment : public BaseSegment {
   }
 
   // return the number of unique_values (dictionary entries)
-  size_t unique_values_count() const {
-    return _dictionary->size();
-  }
+  size_t unique_values_count() const { return _dictionary->size(); }
 
   // return the number of entries
-  size_t size() const override {
-    return _attribute_vector->size();
-  }
+  size_t size() const override { return _attribute_vector->size(); }
 
   // returns the calculated memory usage
   size_t estimate_memory_usage() const final {
     // using at(0) is legal here even if the vector is empty as the
     // sizeof operator does not evaluate the expression, it is just used at
     // compile-time to find out what type the expression would evaluate to.
-    return (
-      sizeof(_dictionary->at(0)) * _dictionary->size()
-      + sizeof(_attribute_vector->get(0)) * _attribute_vector->size()
-    );
+    return (sizeof(_dictionary->at(0)) * _dictionary->size() +
+            sizeof(_attribute_vector->get(0)) * _attribute_vector->size());
   }
 
  protected:
