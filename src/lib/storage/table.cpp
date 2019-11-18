@@ -23,6 +23,10 @@ Table::Table(const uint32_t chunk_size) : _max_chunk_size(chunk_size) {
   _append_new_chunk();
 }
 
+void Table::add_column_definition(const std::string& name, const std::string& type) {
+    // Implementation goes here
+}
+
 void Table::add_column(const std::string& name, const std::string& type) {
   DebugAssert(row_count() == 0, "You can only add columns when no data has been added");
 
@@ -37,6 +41,10 @@ void Table::append(std::vector<AllTypeVariant> values) {
   }
 
   _chunks.back().append(values);
+}
+
+void Table::create_new_chunk() {
+  // Implementation goes here
 }
 
 uint16_t Table::column_count() const {
@@ -113,6 +121,10 @@ void Table::compress_chunk(ChunkID chunk_id) {
 void Table::_compress_segment(std::promise<std::shared_ptr<BaseSegment>> promise, const std::string type,
                               const std::shared_ptr<BaseSegment> uncompressed_segment) {
   promise.set_value(make_shared_by_data_type<BaseSegment, DictionarySegment>(type, uncompressed_segment));
+}
+
+void emplace_chunk(Chunk chunk) {
+  // Implementation goes here
 }
 
 }  // namespace opossum
