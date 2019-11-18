@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "dictionary_segment.hpp"
 #include "value_segment.hpp"
 
 #include "resolve_type.hpp"
@@ -87,5 +88,31 @@ void Table::_append_new_chunk() {
   _chunks.push_back(std::move(new_chunk));
 }
 
-void Table::compress_chunk(ChunkID chunk_id) { throw std::runtime_error("Implement Table::compress_chunk"); }
+void Table::compress_chunk(ChunkID chunk_id) {
+  const auto& uncompressed_chunk = get_chunk(chunk_id);
+  Chunk compressed_chunk = Chunk();
+
+  std::vector<std::future<std::shared_ptr<BaseSegment>>> compressed_segment_futures;
+
+  const auto col_count = column_count();
+  for (ColumnID column_id = ColumnID{0}; column_id < col_count; ++column_id) {
+    const auto uncompressed_segment = uncompressed_chunk.get_segment(column_id);
+    std::promise<std::shared_ptr<BaseSegment>> promise;
+    compressed_segment_futures.push_back(promise.get_future());
+    std::thread thread(_compress_segment, std::move(promise), column_type(column_id), uncompressed_segment);
+    thread.detach();
+  }
+
+  for (auto& compressed_segment_future : compressed_segment_futures) {
+    compressed_chunk.add_segment(compressed_segment_future.get());
+  }
+
+  _chunks[chunk_id] = std::move(compressed_chunk);
+}
+
+void Table::_compress_segment(std::promise<std::shared_ptr<BaseSegment>> promise, const std::string type,
+                              const std::shared_ptr<BaseSegment> uncompressed_segment) {
+  promise.set_value(make_shared_by_data_type<BaseSegment, DictionarySegment>(type, uncompressed_segment));
+}
+
 }  // namespace opossum

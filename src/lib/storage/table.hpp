@@ -1,5 +1,6 @@
 #pragma once
 
+#include <future>
 #include <limits>
 #include <map>
 #include <memory>
@@ -87,5 +88,8 @@ class Table : private Noncopyable {
   uint32_t _max_chunk_size;
 
   void _append_new_chunk();
+
+  static void _compress_segment(std::promise<std::shared_ptr<BaseSegment>> promise, const std::string type,
+                                const std::shared_ptr<BaseSegment> uncompressed_segment);
 };
 }  // namespace opossum
