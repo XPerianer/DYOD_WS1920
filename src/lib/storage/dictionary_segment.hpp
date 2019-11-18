@@ -129,10 +129,7 @@ class DictionarySegment : public BaseSegment {
 
   // returns the calculated memory usage
   size_t estimate_memory_usage() const final {
-    // using at(0) is legal here even if the vector is empty as the
-    // sizeof operator does not evaluate the expression, it is just used at
-    // compile-time to find out what type the expression would evaluate to.
-    return sizeof(_dictionary->at(0)) * _dictionary->size() + _attribute_vector->width() * _attribute_vector->size();
+    return sizeof(T) * _dictionary->capacity() + _attribute_vector->width() * _attribute_vector->size();
   }
 
  protected:
