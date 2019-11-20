@@ -17,6 +17,7 @@ set(
     storage/chunk.hpp
     storage/dictionary_segment.hpp
     storage/reference_segment.hpp
+    storage/reference_segment.cpp
     storage/fixed_size_attribute_vector.hpp
     storage/storage_manager.cpp
     storage/storage_manager.hpp
