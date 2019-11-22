@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "../storage/table.hpp"
 
 namespace opossum {
 class TableScanBaseImplementation : private Noncopyable {
@@ -14,8 +15,9 @@ class TableScanBaseImplementation : private Noncopyable {
   TableScanBaseImplementation(TableScanBaseImplementation&&) = default;
   TableScanBaseImplementation& operator=(TableScanBaseImplementation&&) = default;
 
-  virtual std::shared_ptr<const Table> execute(const std::shared_ptr<const AbstractOperator> in,
+  virtual std::shared_ptr<const Table> execute(const std::shared_ptr<const Table> table,
                                                const ColumnID column_id, const ScanType scan_type,
                                                const AllTypeVariant search_value) = 0;
 };
+
 }  // namespace opossum
