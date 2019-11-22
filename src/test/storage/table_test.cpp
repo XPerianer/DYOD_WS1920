@@ -80,7 +80,7 @@ TEST_F(StorageTableTest, CompressChunkReplacesWithDictionarySegment) {
   auto& chunk = t.get_chunk(ChunkID{0});
   auto segment_ptr = chunk.get_segment(ColumnID{0});
   auto dictionary_segment_ptr = std::dynamic_pointer_cast<DictionarySegment<int>>(segment_ptr);
-  EXPECT_TRUE(dictionary_segment_ptr);
+  EXPECT_NE(dictionary_segment_ptr, nullptr);
 }
 
 }  // namespace opossum

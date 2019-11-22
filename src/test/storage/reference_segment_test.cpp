@@ -19,7 +19,6 @@
 #include "types.hpp"
 
 namespace opossum {
-
 class ReferenceSegmentTest : public BaseTest {
   virtual void SetUp() {
     _test_table = std::make_shared<opossum::Table>(opossum::Table(3));
@@ -92,5 +91,4 @@ TEST_F(ReferenceSegmentTest, RetrievesValuesFromChunks) {
   EXPECT_EQ(reference_segment[0], column_1[2]);
   EXPECT_EQ(reference_segment[2], column_2[1]);
 }
-
 }  // namespace opossum

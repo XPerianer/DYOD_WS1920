@@ -2,16 +2,17 @@
 #include <memory>
 #include <string>
 
+#include "../base_test.hpp"
 #include "gtest/gtest.h"
 
-#include "../../lib/resolve_type.hpp"
-#include "../../lib/storage/base_segment.hpp"
-#include "../../lib/storage/dictionary_segment.hpp"
-#include "../../lib/storage/value_segment.hpp"
+#include "resolve_type.hpp"
+#include "storage/base_segment.hpp"
+#include "storage/dictionary_segment.hpp"
+#include "storage/value_segment.hpp"
 
 namespace opossum {
 
-class StorageDictionarySegmentTest : public ::testing::Test {
+class StorageDictionarySegmentTest : public BaseTest {
  protected:
   void SetUp() override {
     vs_int->append(5);
@@ -141,7 +142,7 @@ TEST_F(StorageDictionarySegmentTest, AccessValueByValueID) {
   EXPECT_EQ(ds.value_by_value_id(ValueID{2}), 6);
 }
 
-TEST_F(StorageDictionarySegmentTest, AccessValueByValueIDThrowsException) {
+TEST_F(StorageDictionarySegmentTest, AccessValueByOutOfBoundsValueIDThrowsException) {
   DictionarySegment<int> ds(vs_int);
   EXPECT_THROW(ds.value_by_value_id(ValueID{3}), std::exception);
 }
@@ -175,5 +176,4 @@ TEST_F(StorageDictionarySegmentTest, EstimateMemoryUsage) {
   DictionarySegment<int> ds16(vs);
   EXPECT_EQ(ds16.estimate_memory_usage(), 1536);
 }
-
 }  // namespace opossum
