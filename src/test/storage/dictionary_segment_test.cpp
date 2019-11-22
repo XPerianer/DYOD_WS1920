@@ -142,7 +142,7 @@ TEST_F(StorageDictionarySegmentTest, AccessValueByValueID) {
   EXPECT_EQ(ds.value_by_value_id(ValueID{2}), 6);
 }
 
-TEST_F(StorageDictionarySegmentTest, AccessValueByValueIDThrowsException) {
+TEST_F(StorageDictionarySegmentTest, AccessValueByOutOfBoundsValueIDThrowsException) {
   DictionarySegment<int> ds(vs_int);
   EXPECT_THROW(ds.value_by_value_id(ValueID{3}), std::exception);
 }

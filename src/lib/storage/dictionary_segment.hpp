@@ -33,17 +33,18 @@ class DictionarySegment : public BaseSegment {
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(base_segment);
     DebugAssert(value_segment, "Invalid base segment passed to dictionary segment constructor");
 
+    const auto values = value_segment->values();
+
     // First pass: Fill the dictionary
     // For faster lookup, we store the elements in a set first
     std::set<T> distinct_values;
-    for (const auto& value : value_segment->values()) {
+    for (const auto& value : values) {
       distinct_values.insert(value);
     }
 
     // Build an ordered vector based on the set.
     _dictionary = std::make_shared<std::vector<T>>(distinct_values.cbegin(), distinct_values.cend());
 
-    const auto values = value_segment->values();
     const size_t value_size = values.size();
     const size_t dictionary_size = _dictionary->size();
 
