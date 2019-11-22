@@ -19,6 +19,9 @@
 namespace opossum {
 
 Table::Table(const uint32_t chunk_size) : _max_chunk_size(chunk_size) {
+  // We have to wrap the mutex in a unique_ptr to allow move ctor
+  _chunks_mutex = std::make_unique<std::mutex>();
+
   // On table creation, a first chunk shall be created.
   _append_new_chunk();
 }
@@ -33,7 +36,7 @@ void Table::add_column(const std::string& name, const std::string& type) {
   _column_names.push_back(name);
   _column_types.push_back(type);
 
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   _chunks.back().add_segment(make_shared_by_data_type<BaseSegment, ValueSegment>(type));
 }
 
@@ -42,7 +45,7 @@ void Table::append(std::vector<AllTypeVariant> values) {
     _append_new_chunk();
   }
 
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   _chunks.back().append(values);
 }
 
@@ -53,20 +56,20 @@ void Table::create_new_chunk() {
 uint16_t Table::column_count() const {
   // At creation of the table, a chunk is created. It is not possible to delete a chunk (only to emplace it).
   // Thus, _chunks[0] should always exist.
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   return _chunks[0].column_count();
 }
 
 uint64_t Table::row_count() const {
   // static cast on the 0 is needed to make the compiler pick the correct type for the accumulate template.
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   return std::accumulate(_chunks.cbegin(), _chunks.cend(), static_cast<uint64_t>(0),
                          [](uint64_t sum, const Chunk& chunk) { return sum + chunk.size(); });
 }
 
 ChunkID Table::chunk_count() const {
   // ChunkID is uint32_t, the vector could theoretically be as big as a uint64_t can become.
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   return static_cast<ChunkID>(_chunks.size());
 }
 
@@ -89,12 +92,12 @@ const std::string& Table::column_name(ColumnID column_id) const { return _column
 const std::string& Table::column_type(ColumnID column_id) const { return _column_types.at(column_id); }
 
 Chunk& Table::get_chunk(ChunkID chunk_id) {
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   return _chunks.at(chunk_id);
 }
 
 const Chunk& Table::get_chunk(ChunkID chunk_id) const {
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   return _chunks.at(chunk_id);
 }
 
@@ -105,7 +108,7 @@ void Table::_append_new_chunk() {
     new_chunk.add_segment(make_shared_by_data_type<BaseSegment, ValueSegment>(column_type));
   }
 
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   _chunks.push_back(std::move(new_chunk));
 }
 
@@ -128,7 +131,7 @@ void Table::compress_chunk(ChunkID chunk_id) {
     compressed_chunk.add_segment(compressed_segment_future.get());
   }
 
-  const std::lock_guard<std::mutex> lock(_chunks_mutex);
+  const std::lock_guard<std::mutex> lock(*_chunks_mutex);
   _chunks[chunk_id] = std::move(compressed_chunk);
 }
 
