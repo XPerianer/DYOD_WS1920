@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "reference_segment.hpp"
 
 namespace opossum {

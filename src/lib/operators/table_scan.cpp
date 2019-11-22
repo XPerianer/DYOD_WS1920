@@ -1,5 +1,7 @@
+#include <memory>
+
 #include "table_scan.hpp"
-#include <resolve_type.hpp>
+#include "resolve_type.hpp"
 #include "../storage/table.hpp"
 #include "table_scan_base_implementation.hpp"
 #include "table_scan_implementation.hpp"
@@ -17,11 +19,11 @@ ScanType TableScan::scan_type() const { return _scan_type; }
 const AllTypeVariant& TableScan::search_value() const { return _search_value; }
 
 std::shared_ptr<const Table> TableScan::_on_execute() {
-  const auto type = _input_table_left()->column_type(_column_id);
-  const auto implementation = make_unique_by_data_type<TableScanBaseImplementation, TableScanImplementation>(type);
-  
   const auto table = _input_table_left();
-  return implementation->execute(table, _column_id, _scan_type, _search_value);
+  const auto type = table->column_type(_column_id);
+  const auto implementation = make_unique_by_data_type<TableScanBaseImplementation, TableScanImplementation>(
+      type, table, _column_id, _scan_type, _search_value);
+  return implementation->on_execute();
 }
 
 }  // namespace opossum

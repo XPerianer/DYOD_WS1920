@@ -1,3 +1,6 @@
+#include <memory>
+#include <string>
+
 #include "get_table.hpp"
 #include "storage/storage_manager.hpp"
 
