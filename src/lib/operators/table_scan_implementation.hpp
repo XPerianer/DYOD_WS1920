@@ -13,8 +13,6 @@ namespace opossum {
 template <typename T>
 class TableScanImplementation : public TableScanBaseImplementation {
  public:
-  // TODO: should this be placed somewhere else?
-
   TableScanImplementation(const std::shared_ptr<const Table> table, const ColumnID column_id, const ScanType scan_type,
                           const AllTypeVariant search_value)
       : TableScanBaseImplementation(table, column_id, scan_type, search_value) {
@@ -42,6 +40,10 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // Exctract the relevant segment from the chunk and pass it to _process_segment
   void _process_chunk(ChunkID chunk_id) {
     const Chunk& chunk = _table->get_chunk(chunk_id);
+
+    // TODO: Is it correct that we only want _one_ output column in the resulting table?
+    // I think usually a table scan gives all columns, but filters based on the selected column...
+
     const auto segment = chunk.get_segment(_column_id);
 
     const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(segment);
@@ -63,7 +65,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   }
 
   // These methods go through the segment and add all relevant values to the
-  // current _pos_list
+  // _current_pos_list
   void _process_segment(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
     throw new std::logic_error("Missing handling for segment type");
   }
