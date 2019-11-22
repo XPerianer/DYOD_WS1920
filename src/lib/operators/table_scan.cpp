@@ -19,7 +19,9 @@ const AllTypeVariant& TableScan::search_value() const { return _search_value; }
 std::shared_ptr<const Table> TableScan::_on_execute() {
   const auto type = _input_table_left()->column_type(_column_id);
   const auto implementation = make_unique_by_data_type<TableScanBaseImplementation, TableScanImplementation>(type);
-  return implementation->execute();
+  
+  const auto table = _input_table_left();
+  return implementation->execute(table, _column_id, _scan_type, _search_value);
 }
 
 }  // namespace opossum
