@@ -20,7 +20,7 @@ class TableScan : public AbstractOperator {
   TableScan(const std::shared_ptr<const AbstractOperator> in, ColumnID column_id, const ScanType scan_type,
             const AllTypeVariant search_value);
 
-  ~TableScan();
+  ~TableScan() = default;
 
   ColumnID column_id() const;
   ScanType scan_type() const;
