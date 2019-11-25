@@ -23,7 +23,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     ColumnID column_count = static_cast<ColumnID>(_table->column_count());
     for (ColumnID column_id = ColumnID(0); column_id < column_count; ++column_id) {
-      _result_table->add_column_definition(_table->column_name(column_id), _table->column_type(column_id));
+      _result_table->add_column(_table->column_name(column_id), _table->column_type(column_id));
     }
 
     // TODO: Maybe we don't need this for DictionarySegments or ReferenceSegments?
@@ -94,7 +94,14 @@ class TableScanImplementation : public TableScanBaseImplementation {
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ReferenceSegment> segment) {
-    throw std::logic_error("Missing handling for segment type");
+      const auto& pos_list = (*segment->pos_list());
+      for (const auto& rowId : pos_list) {
+          const auto value = type_cast<T>((*segment->referenced_table()->
+                  get_chunk(rowId.chunk_id).get_segment(segment->referenced_column_id()))[rowId.chunk_offset]);
+          if (_scan_type_comparator(value)) {
+              _current_pos_list->push_back(rowId);
+          }
+      }
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ValueSegment<T>> segment) {
