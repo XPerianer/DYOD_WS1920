@@ -49,9 +49,7 @@ void Table::append(std::vector<AllTypeVariant> values) {
   _chunks.back().append(values);
 }
 
-void Table::create_new_chunk() {
-  _append_new_chunk();
-}
+void Table::create_new_chunk() { _append_new_chunk(); }
 
 uint16_t Table::column_count() const {
   // At creation of the table, a chunk is created. It is not possible to delete a chunk (only to emplace it).

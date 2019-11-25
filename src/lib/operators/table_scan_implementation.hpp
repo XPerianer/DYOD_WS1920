@@ -1,8 +1,8 @@
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <utility>
-#include <limits>
 
 #include "../storage/reference_segment.hpp"
 #include "../storage/table.hpp"
@@ -20,7 +20,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
         _typed_search_value(type_cast<T>(_search_value)),
         _current_pos_list(std::make_shared<PosList>()),
         _result_table(std::make_shared<Table>()) {
-
     ColumnID column_count = static_cast<ColumnID>(_table->column_count());
     for (ColumnID column_id = ColumnID(0); column_id < column_count; ++column_id) {
       _result_table->add_column(_table->column_name(column_id), _table->column_type(column_id));
@@ -49,18 +48,21 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(segment);
     if (dictionary_segment) {
+      _set_referenced_table(_table);
       _process_segment(chunk_id, dictionary_segment);
       return;
     }
 
     const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
     if (reference_segment) {
-     _process_segment(chunk_id, reference_segment);
-     return;
+      _set_referenced_table(reference_segment->referenced_table());
+      _process_segment(chunk_id, reference_segment);
+      return;
     }
 
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(segment);
     if (value_segment) {
+      _set_referenced_table(_table);
       _process_segment(chunk_id, value_segment);
       return;
     }
@@ -73,19 +75,25 @@ class TableScanImplementation : public TableScanBaseImplementation {
   void _process_segment(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
     switch (_scan_type) {
       case ScanType::OpEquals:
-        _process_dictionary_segment_equals(chunk_id, segment); break;
+        _process_dictionary_segment_equals(chunk_id, segment);
+        break;
       case ScanType::OpNotEquals:
-        _process_dictionary_segment_not_equals(chunk_id, segment); break;
+        _process_dictionary_segment_not_equals(chunk_id, segment);
+        break;
 
       case ScanType::OpLessThan:
-        _process_dictionary_segment_less_than(chunk_id, segment); break;
+        _process_dictionary_segment_less_than(chunk_id, segment);
+        break;
       case ScanType::OpLessThanEquals:
-        _process_dictionary_segment_less_than_equals(chunk_id, segment); break;
+        _process_dictionary_segment_less_than_equals(chunk_id, segment);
+        break;
 
       case ScanType::OpGreaterThan:
-        _process_dictionary_segment_greater_than(chunk_id, segment); break;
+        _process_dictionary_segment_greater_than(chunk_id, segment);
+        break;
       case ScanType::OpGreaterThanEquals:
-        _process_dictionary_segment_greater_than_equals(chunk_id, segment); break;
+        _process_dictionary_segment_greater_than_equals(chunk_id, segment);
+        break;
     }
 
     if (_current_pos_list->size() > _target_pos_list_size) {
@@ -94,14 +102,20 @@ class TableScanImplementation : public TableScanBaseImplementation {
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ReferenceSegment> segment) {
-      const auto& pos_list = (*segment->pos_list());
-      for (const auto& rowId : pos_list) {
-          const auto value = type_cast<T>((*segment->referenced_table()->
-                  get_chunk(rowId.chunk_id).get_segment(segment->referenced_column_id()))[rowId.chunk_offset]);
-          if (_scan_type_comparator(value)) {
-              _current_pos_list->push_back(rowId);
-          }
+    ColumnID referenced_column_id = segment->referenced_column_id();
+    const std::shared_ptr<const Table> referenced_table = segment->referenced_table();
+    const auto& pos_list = (*segment->pos_list());
+
+    for (const auto& rowId : pos_list) {
+      const Chunk& chunk = referenced_table->get_chunk(rowId.chunk_id);
+      std::shared_ptr<BaseSegment> referenced_segment = chunk.get_segment(referenced_column_id);
+
+      // TODO: Not cool
+      const auto value = type_cast<T>((*referenced_segment)[rowId.chunk_offset]);
+      if (_scan_type_comparator(value)) {
+        _current_pos_list->push_back(rowId);
       }
+    }
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ValueSegment<T>> segment) {
@@ -135,13 +149,25 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     ColumnID column_count = static_cast<ColumnID>(_table->column_count());
     for (ColumnID column_id = ColumnID(0); column_id < column_count; ++column_id) {
-      const auto reference_segment = std::make_shared<ReferenceSegment>(_table, column_id, _current_pos_list);
+      const auto reference_segment =
+          std::make_shared<ReferenceSegment>(_current_referenced_table, column_id, _current_pos_list);
       chunk.add_segment(reference_segment);
     }
 
     _result_table->emplace_chunk(std::move(chunk));
 
     _current_pos_list = std::make_shared<PosList>();
+  }
+
+  // From now on, we are handling a new Segment, so we need a new referenced table.
+  void _set_referenced_table(std::shared_ptr<const Table> table) {
+    if (table == _current_referenced_table) {
+      // already the correct one, nothing to do
+    } else {
+      // houston, we got a problem
+      _finish_current_pos_list();
+      _current_referenced_table = table;
+    }
   }
 
   // TODO: This is probably faster if we inline it
@@ -209,7 +235,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
     }
   }
 
-  void _process_dictionary_segment_greater_than_equals(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
+  void _process_dictionary_segment_greater_than_equals(ChunkID chunk_id,
+                                                       std::shared_ptr<DictionarySegment<T>> segment) {
     ValueID matching_value_id = segment->lower_bound(_typed_search_value);
 
     const auto& attribute_vector = *(segment->attribute_vector());
@@ -307,8 +334,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
     }
   }
 
-
-
   // Members
   T _typed_search_value;
   std::function<bool(T)> _scan_type_comparator;
@@ -316,6 +341,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // TODO: What is an appropriate value here?
   size_t _target_pos_list_size = std::numeric_limits<ChunkOffset>::max();
 
+  std::shared_ptr<const Table> _current_referenced_table;
   std::shared_ptr<PosList> _current_pos_list;
   std::shared_ptr<Table> _result_table;
 };
