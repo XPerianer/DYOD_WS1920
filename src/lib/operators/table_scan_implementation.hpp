@@ -50,19 +50,22 @@ class TableScanImplementation : public TableScanBaseImplementation {
     const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(segment);
     if (dictionary_segment) {
       _process_segment(chunk_id, dictionary_segment);
+      return;
     }
 
     const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
     if (reference_segment) {
-      _process_segment(chunk_id, reference_segment);
+     _process_segment(chunk_id, reference_segment);
+     return;
     }
 
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(segment);
     if (value_segment) {
       _process_segment(chunk_id, value_segment);
+      return;
     }
 
-    throw new std::logic_error("Missing handling for segment type");
+    throw std::logic_error("Missing handling for segment type");
   }
 
   // These methods go through the segment and add all relevant values to the
@@ -91,7 +94,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ReferenceSegment> segment) {
-    throw new std::logic_error("Missing handling for segment type");
+    throw std::logic_error("Missing handling for segment type");
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ValueSegment<T>> segment) {
@@ -161,7 +164,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
         return [&_typed_search_value = _typed_search_value](const T& val1) { return val1 >= _typed_search_value; };
     }
 
-    throw new std::logic_error("Unhandled scan type");
+    throw std::logic_error("Unhandled scan type");
   }
 
   // -----------------
