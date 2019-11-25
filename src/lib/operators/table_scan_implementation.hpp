@@ -135,14 +135,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
     _result_table->emplace_chunk(std::move(chunk));
 
     _current_pos_list = std::make_shared<PosList>();
-
-    // We will need to push back to this very often. We think that _target_pos_list_size
-    // is probably a good estimation for how many elements we will have to push back.
-    // When we are finishing this list, we will shrink the vector back.
-    // We pray that this gives good performance for a little bit of memory.
-    // TODO: It may be better to do count - reserve - push_back in the _process_segment
-    // methods -- we should benchmark this.
-    _current_pos_list->reserve(2 * _target_pos_list_size);
   }
 
   // TODO: This is probably faster if we inline it
@@ -196,6 +188,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     if (matching_value_id == INVALID_VALUE_ID || segment->value_by_value_id(matching_value_id) != _typed_search_value) {
       // add all rows to the position list
+      // TODO: Here Richard should reserve space
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
         pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
       }
