@@ -88,7 +88,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
       return;
     }
 
-
     if (flags.add_all) {
       _add_all_chunk_offsets = true;
     } else {
@@ -223,7 +222,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
           // same PosList we already computed the resulting PosList for the new Segment.
           const auto source_pos_list_ptr = reference_source_segment->pos_list();
 
-          auto result = source_pos_list_to_result_pos_list.insert(std::make_pair(source_pos_list_ptr, std::make_shared<PosList>()));
+          auto result = source_pos_list_to_result_pos_list.insert(
+              std::make_pair(source_pos_list_ptr, std::make_shared<PosList>()));
           auto pos_list_ptr = result.first->second;
           auto& pos_list = *pos_list_ptr;
 
@@ -237,8 +237,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
             }
           }
 
-          result_segment = std::make_shared<ReferenceSegment>(
-              reference_source_segment->referenced_table(), reference_source_segment->referenced_column_id(), pos_list_ptr);
+          result_segment =
+              std::make_shared<ReferenceSegment>(reference_source_segment->referenced_table(),
+                                                 reference_source_segment->referenced_column_id(), pos_list_ptr);
         }
       } else {
         if (pos_list_for_value_and_dictionary_segment == nullptr) {
@@ -312,7 +313,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
         case ScanType::OpLessThan:
         case ScanType::OpLessThanEquals:
-          // OpLessThanEquals is the same logic as OpLessThan, only that we need to use upper_bound instead of lower_bound
+          // OpLessThanEquals is the same logic as OpLessThan, only that we need to use upper_bound instead of
+          // lower_bound
           matching_value_id = _scan_type == ScanType::OpLessThan ? segment->lower_bound(_typed_search_value)
                                                                  : segment->upper_bound(_typed_search_value);
           // We now want all elements in the attribute vector that have a value_id < matching_value_id.
@@ -324,7 +326,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
         case ScanType::OpGreaterThanEquals:
         case ScanType::OpGreaterThan:
-          // OpGreaterThan is the same logic as OpGreaterThanEquals, only that we need to use upper_bound instead of lower_bound
+          // OpGreaterThan is the same logic as OpGreaterThanEquals, only that we need to use upper_bound instead of
+          // lower_bound
           matching_value_id = _scan_type == ScanType::OpGreaterThanEquals ? segment->lower_bound(_typed_search_value)
                                                                           : segment->upper_bound(_typed_search_value);
           // We now want all elements in the attribute vector that have a value_id >= matching_value_id.
