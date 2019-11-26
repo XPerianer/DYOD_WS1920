@@ -335,7 +335,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   std::function<bool(T)> _scan_type_comparator;
 
   std::vector<ChunkOffset> _chunk_offsets_to_add_to_result_table;
-  bool _add_all_chunk_offsets;
+  bool _add_all_chunk_offsets = false;
 
   std::shared_ptr<Table> _result_table;
 };
