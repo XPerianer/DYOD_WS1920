@@ -158,7 +158,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
       const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
       if (referenced_dictionary_segment != nullptr) {
         _update_current_pos_list_from_segment_offsets(referenced_chunk_id, referenced_dictionary_segment,
-                                                      chunk_offsets);
+                                                      chunk_offsets, segment->pos_list());
         continue;
       }
 
@@ -189,7 +189,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
   void _update_current_pos_list_from_segment_offsets(
       ChunkID referenced_chunk_id, std::shared_ptr<DictionarySegment<T>> referenced_dictionary_segment,
-      std::vector<ChunkOffset> chunk_offsets) {
+      std::vector<ChunkOffset> chunk_offsets, std::shared_ptr<const PosList> reference_pos_list) {
     const DictionarySegmentProcessingFlags flags(referenced_dictionary_segment, _scan_type, _typed_search_value);
 
     if (flags.add_none) {
@@ -200,10 +200,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
     auto& pos_list = (*_current_pos_list);
 
     if (flags.add_all) {
-      pos_list.reserve(pos_list.size() + chunk_offsets.size());
-      for (const auto chunk_offset : chunk_offsets) {
-        pos_list.emplace_back(referenced_chunk_id, chunk_offset);
-      }
+        pos_list = *reference_pos_list;
     } else {
       for (const auto chunk_offset : chunk_offsets) {
         if (flags.should_add_value_id(attribute_vector.get(chunk_offset))) {
