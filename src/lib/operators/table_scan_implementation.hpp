@@ -20,6 +20,7 @@ inline void _debug_assert_all_segments_have_same_indirection(const opossum::Chun
     const auto base_segment = chunk.get_segment(column_id);
     const auto reference_segment_ptr = std::dynamic_pointer_cast<opossum::ReferenceSegment>(base_segment);
     bool is_reference_segment = reference_segment_ptr != nullptr;
+
     DebugAssert(is_reference_segment == should_be_reference_segments,
                 "Table scan called with chunk with mixed segments");
   }
@@ -91,63 +92,51 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // These methods go through the segment and add all relevant values to the
   // _current_pos_list
   void _process_segment(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
+    ValueID matching_value_id;
+    bool add_none = false;
+    bool add_all = false;
+    std::function<bool(ValueID)> should_add_element;
+
     switch (_scan_type) {
-      case ScanType::OpEquals: {
-        ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-        bool add_none = matching_value_id == INVALID_VALUE_ID ||
-                        segment->value_by_value_id(matching_value_id) != _typed_search_value;
-        bool add_all = false;
-        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
-          return id == matching_value_id;
-        };
-        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
+      case ScanType::OpEquals:
+        matching_value_id = segment->lower_bound(_typed_search_value);
+        add_none = matching_value_id == INVALID_VALUE_ID ||
+                   segment->value_by_value_id(matching_value_id) != _typed_search_value;
+        should_add_element = [&matching_value_id](ValueID id) { return id == matching_value_id; };
         break;
-      }
-      case ScanType::OpNotEquals: {
-        ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-        bool add_none = false;
-        bool add_all = matching_value_id == INVALID_VALUE_ID ||
-                       segment->value_by_value_id(matching_value_id) != _typed_search_value;
-        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
-          return id != matching_value_id;
-        };
-        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
+      case ScanType::OpNotEquals:
+        matching_value_id = segment->lower_bound(_typed_search_value);
+        add_all = matching_value_id == INVALID_VALUE_ID ||
+                  segment->value_by_value_id(matching_value_id) != _typed_search_value;
+        should_add_element = [&matching_value_id](ValueID id) { return id != matching_value_id; };
         break;
-      }
 
       case ScanType::OpLessThan:
-      case ScanType::OpLessThanEquals: {
+      case ScanType::OpLessThanEquals:
         // OpLessThanEquals is the same logic as OpLessThan, only that we need to use upper_bound instead of lower_bound
-        ValueID matching_value_id = _scan_type == ScanType::OpLessThan ? segment->lower_bound(_typed_search_value)
-                                                                       : segment->upper_bound(_typed_search_value);
+        matching_value_id = _scan_type == ScanType::OpLessThan ? segment->lower_bound(_typed_search_value)
+                                                               : segment->upper_bound(_typed_search_value);
         // We now want all elements in the attribue vector that have a value_id < matching_value_id.
 
-        bool add_none = matching_value_id == ValueID(0);       // No lower values exist
-        bool add_all = matching_value_id == INVALID_VALUE_ID;  // All values are lower
-        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
-          return id < matching_value_id;
-        };
-        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
+        add_none = matching_value_id == ValueID(0);       // No lower values exist
+        add_all = matching_value_id == INVALID_VALUE_ID;  // All values are lower
+        should_add_element = [&matching_value_id](ValueID id) { return id < matching_value_id; };
         break;
-      }
 
       case ScanType::OpGreaterThanEquals:
-      case ScanType::OpGreaterThan: {
+      case ScanType::OpGreaterThan:
         // OpGreaterThan is the same logic as OpGreaterThanEquals, only that we need to use upper_bound instead of lower_bound
-        ValueID matching_value_id = _scan_type == ScanType::OpGreaterThanEquals
-                                        ? segment->lower_bound(_typed_search_value)
-                                        : segment->upper_bound(_typed_search_value);
+        matching_value_id = _scan_type == ScanType::OpGreaterThanEquals ? segment->lower_bound(_typed_search_value)
+                                                                        : segment->upper_bound(_typed_search_value);
         // We now want all elements in the attribue vector that have a value_id >= matching_value_id.
 
-        bool add_none = matching_value_id == INVALID_VALUE_ID;  // All values are greater
-        bool add_all = matching_value_id == ValueID(0);         // No values are greater
-        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
-          return id >= matching_value_id;
-        };
-        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
+        add_none = matching_value_id == INVALID_VALUE_ID;  // All values are greater
+        add_all = matching_value_id == ValueID(0);         // No values are greater
+        should_add_element = [&matching_value_id](ValueID id) { return id >= matching_value_id; };
         break;
-      }
     }
+
+    _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
 
     if (_current_pos_list->size() > _target_pos_list_size) {
       _finish_current_pos_list();
@@ -159,6 +148,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
     const std::shared_ptr<const Table> referenced_table = segment->referenced_table();
     const auto& pos_list = (*segment->pos_list());
 
+    // It's easier to handle all referenced values for a single chunk at once
+    // The input may be sorted randomly(?), so in order to be able to process
+    // the chunks this way, we need to regroup.
     std::unordered_map<ChunkID, std::vector<ChunkOffset>> regrouped_tuples;
     for (const auto& rowId : pos_list) {
       regrouped_tuples[rowId.chunk_id].push_back(rowId.chunk_offset);
@@ -205,6 +197,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
                                                      std::shared_ptr<DictionarySegment<T>> referenced_value_segment,
                                                      std::vector<ChunkOffset> chunk_offsets) {
     throw std::logic_error("Implementation missing");
+    // TODO: Implement logic similar to _process_dictionary_segment_implementation
+    // -> comput add_all, add_none and comparator, then call some unified function
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ValueSegment<T>> segment) {
@@ -224,8 +218,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
     }
   }
 
-  // Make a ReferenceSegment out of the _current_pos_list, add it to the
-  // _result_table and start a new _current_pos_list
+  // Make a ReferenceSegment out of the _current_pos_list, add it to the _result_table and start a new _current_pos_list
   void _finish_current_pos_list() {
     _current_pos_list->shrink_to_fit();
 
@@ -248,12 +241,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
     _current_pos_list = std::make_shared<PosList>();
   }
 
-  // From now on, we are handling a new Segment, so we need a new referenced table.
+  // From now on, we are handling a new Segment, so maybe we're referencing another table.
   void _set_referenced_table(std::shared_ptr<const Table> table) {
-    if (table == _current_referenced_table) {
-      // already the correct one, nothing to do
-    } else {
-      // houston, we got a problem
+    if (table != _current_referenced_table) {
       _finish_current_pos_list();
       _current_referenced_table = table;
     }
@@ -294,7 +284,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
     auto& pos_list = (*_current_pos_list);
 
     if (add_all) {
-      // TODO: Reserve
+      pos_list.reserve(pos_list.size() + attribute_vector_size);
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
         pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
       }
