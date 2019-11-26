@@ -74,26 +74,61 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // _current_pos_list
   void _process_segment(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
     switch (_scan_type) {
-      case ScanType::OpEquals:
-        _process_dictionary_segment_equals(chunk_id, segment);
+      case ScanType::OpEquals: {
+        ValueID matching_value_id = segment->lower_bound(_typed_search_value);
+        bool add_none = matching_value_id == INVALID_VALUE_ID ||
+                        segment->value_by_value_id(matching_value_id) != _typed_search_value;
+        bool add_all = false;
+        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
+          return id == matching_value_id;
+        };
+        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
         break;
-      case ScanType::OpNotEquals:
-        _process_dictionary_segment_not_equals(chunk_id, segment);
+      }
+      case ScanType::OpNotEquals: {
+        ValueID matching_value_id = segment->lower_bound(_typed_search_value);
+        bool add_none = false;
+        bool add_all = matching_value_id == INVALID_VALUE_ID ||
+                       segment->value_by_value_id(matching_value_id) != _typed_search_value;
+        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
+          return id != matching_value_id;
+        };
+        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
         break;
+      }
 
       case ScanType::OpLessThan:
-        _process_dictionary_segment_less_than(chunk_id, segment);
-        break;
-      case ScanType::OpLessThanEquals:
-        _process_dictionary_segment_less_than_equals(chunk_id, segment);
-        break;
+      case ScanType::OpLessThanEquals: {
+        // OpLessThanEquals is the same logic as OpLessThan, only that we need to use upper_bound instead of lower_bound
+        ValueID matching_value_id = _scan_type == ScanType::OpLessThan ? segment->lower_bound(_typed_search_value)
+                                                                       : segment->upper_bound(_typed_search_value);
+        // We now want all elements in the attribue vector that have a value_id < matching_value_id.
 
-      case ScanType::OpGreaterThan:
-        _process_dictionary_segment_greater_than(chunk_id, segment);
+        bool add_none = matching_value_id == ValueID(0);       // No lower values exist
+        bool add_all = matching_value_id == INVALID_VALUE_ID;  // All values are lower
+        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
+          return id < matching_value_id;
+        };
+        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
         break;
+      }
+
       case ScanType::OpGreaterThanEquals:
-        _process_dictionary_segment_greater_than_equals(chunk_id, segment);
+      case ScanType::OpGreaterThan: {
+        // OpGreaterThan is the same logic as OpGreaterThanEquals, only that we need to use upper_bound instead of lower_bound
+        ValueID matching_value_id = _scan_type == ScanType::OpGreaterThanEquals
+                                        ? segment->lower_bound(_typed_search_value)
+                                        : segment->upper_bound(_typed_search_value);
+        // We now want all elements in the attribue vector that have a value_id >= matching_value_id.
+
+        bool add_none = matching_value_id == INVALID_VALUE_ID;  // All values are greater
+        bool add_all = matching_value_id == ValueID(0);         // No values are greater
+        std::function<bool(ValueID)> should_add_element = [&matching_value_id](ValueID id) {
+          return id >= matching_value_id;
+        };
+        _process_dictionary_segment_implementation(chunk_id, segment, add_none, add_all, should_add_element);
         break;
+      }
     }
 
     if (_current_pos_list->size() > _target_pos_list_size) {
@@ -192,142 +227,29 @@ class TableScanImplementation : public TableScanBaseImplementation {
     throw std::logic_error("Unhandled scan type");
   }
 
-  // -----------------
-  // Specific implementations on third level de-templating (e.g. equals for dictionary segments for int)
+  void _process_dictionary_segment_implementation(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment,
+                                                  bool add_none, bool add_all,
+                                                  std::function<bool(ValueID)> should_add_value_id) {
+    DebugAssert((add_all && add_none) == false, "Invalid call for _process_dictionary_segment_implementation");
 
-  void _process_dictionary_segment_equals(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
-    ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-
-    if (matching_value_id == INVALID_VALUE_ID || segment->value_by_value_id(matching_value_id) != _typed_search_value) {
+    if (add_none) {
       return;
     }
 
-    auto& pos_list = (*_current_pos_list);
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
-    for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-      if (attribute_vector.get(attribute_id) == matching_value_id) {
-        pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-      }
-    }
-  }
-
-  void _process_dictionary_segment_not_equals(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
-    ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-
     const auto& attribute_vector = *(segment->attribute_vector());
     size_t attribute_vector_size = attribute_vector.size();
     auto& pos_list = (*_current_pos_list);
 
-    if (matching_value_id == INVALID_VALUE_ID || segment->value_by_value_id(matching_value_id) != _typed_search_value) {
-      // add all rows to the position list
-      // TODO: Here Richard should reserve space
+    if (add_all) {
+      // TODO: Reserve
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
         pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
       }
     } else {
-      // add only the rows _not_ matching the search value to the position list
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        if (attribute_vector.get(attribute_id) != matching_value_id) {
-          pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-        }
-      }
-    }
-  }
-
-  void _process_dictionary_segment_greater_than_equals(ChunkID chunk_id,
-                                                       std::shared_ptr<DictionarySegment<T>> segment) {
-    ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
-    auto& pos_list = (*_current_pos_list);
-
-    if (matching_value_id == INVALID_VALUE_ID) {
-      // No element in the dictionary is >= search value -> return no elements
-    } else if (matching_value_id == ValueID(0)) {
-      // All elements in the dictionary are >= search_value -> return all elements
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-      }
-    } else {
-      // Some elements are less than search_value, some are greater
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        if (attribute_vector.get(attribute_id) >= matching_value_id) {
-          pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-        }
-      }
-    }
-  }
-
-  void _process_dictionary_segment_greater_than(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
-    // TODO: Deduplicate with greater_than_equals
-    ValueID matching_value_id = segment->upper_bound(_typed_search_value);
-
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
-    auto& pos_list = (*_current_pos_list);
-
-    if (matching_value_id == INVALID_VALUE_ID) {
-      // No element in the dictionary is > search value -> return no elements
-    } else if (matching_value_id == ValueID(0)) {
-      // All elements in the dictionary are > search_value -> return all elements
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-      }
-    } else {
-      // Some elements are less than search_value, some are greater
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        if (attribute_vector.get(attribute_id) >= matching_value_id) {
-          pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-        }
-      }
-    }
-  }
-
-  void _process_dictionary_segment_less_than(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
-    ValueID matching_value_id = segment->lower_bound(_typed_search_value);
-
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
-    auto& pos_list = (*_current_pos_list);
-
-    if (matching_value_id == INVALID_VALUE_ID) {
-      // No element in the dictionary is >= search value -> return all elements
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-      }
-    } else if (matching_value_id == ValueID(0)) {
-      // All elements in the dictionary are >= search_value -> return no elements
-    } else {
-      // Some elements are less than search_value, some are greater
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        if (attribute_vector.get(attribute_id) < matching_value_id) {
-          pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-        }
-      }
-    }
-  }
-
-  void _process_dictionary_segment_less_than_equals(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment) {
-    // TODO: Deduplicate with less_than
-    ValueID matching_value_id = segment->upper_bound(_typed_search_value);
-
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
-    auto& pos_list = (*_current_pos_list);
-
-    if (matching_value_id == INVALID_VALUE_ID) {
-      // No element in the dictionary is >= search value -> return all elements
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
-      }
-    } else if (matching_value_id == ValueID(0)) {
-      // All elements in the dictionary are >= search_value -> return no elements
-    } else {
-      // Some elements are less than search_value, some are greater
-      for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        if (attribute_vector.get(attribute_id) < matching_value_id) {
+        // This function call has some performance penalty (and we think the compiler won't optimize it)
+        // But we think it's better than writing the same code 6 times. This should be benchmarked, though
+        if (should_add_value_id(attribute_vector.get(attribute_id))) {
           pos_list.emplace_back(chunk_id, static_cast<ChunkOffset>(attribute_id));
         }
       }
