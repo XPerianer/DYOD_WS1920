@@ -107,55 +107,8 @@ TEST_F(OperatorsTableScanTest, DoubleScan) {
   auto scan_1 = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThanEquals, 1234);
   scan_1->execute();
 
-  {
-    const auto table = scan_1->get_output();
-    const auto& chunk0 = table->get_chunk(ChunkID(0));
-    const auto segment_0 = chunk0.get_segment(ColumnID(0));
-    const auto& chunk1 = table->get_chunk(ChunkID(1));
-    const auto segment_1 = chunk1.get_segment(ColumnID(0));
-    const auto reference_segment_0 = std::dynamic_pointer_cast<ReferenceSegment>(segment_0);
-    const auto reference_segment_1 = std::dynamic_pointer_cast<ReferenceSegment>(segment_1);
-    const auto pos_list_0 = reference_segment_0->pos_list();
-    const auto pos_list_1 = reference_segment_1->pos_list();
-
-    const auto reference_segment_01 = std::dynamic_pointer_cast<ReferenceSegment>(segment_0);
-    const auto reference_segment_11 = std::dynamic_pointer_cast<ReferenceSegment>(segment_1);
-    const auto pos_list_01 = reference_segment_0->pos_list();
-    const auto pos_list_11 = reference_segment_1->pos_list();
-
-    EXPECT_EQ(reference_segment_0->size(), 1);
-    EXPECT_EQ(reference_segment_1->size(), 1);
-    EXPECT_EQ((*reference_segment_0)[0], AllTypeVariant(12345));
-    EXPECT_EQ((*reference_segment_1)[0], AllTypeVariant(1234));
-
-    EXPECT_EQ(reference_segment_01->size(), 1);
-    EXPECT_EQ(reference_segment_11->size(), 1);
-    EXPECT_EQ((*reference_segment_01)[0], AllTypeVariant(12345));
-    EXPECT_EQ((*reference_segment_11)[0], AllTypeVariant(1234));
-
-    // The original table is loaded with max_chunk_size 2, it has three values -> we get two chunks
-    EXPECT_EQ(pos_list_0->at(0), RowID(ChunkID(0), ChunkOffset(0)));
-    EXPECT_EQ(pos_list_1->at(0), RowID(ChunkID(1), ChunkOffset(0)));
-
-    EXPECT_EQ(pos_list_01->at(0), RowID(ChunkID(0), ChunkOffset(0)));
-    EXPECT_EQ(pos_list_11->at(0), RowID(ChunkID(1), ChunkOffset(0)));
-  }
-
   auto scan_2 = std::make_shared<TableScan>(scan_1, ColumnID{1}, ScanType::OpLessThan, 457.9);
   scan_2->execute();
-
-  {
-    const auto table = scan_2->get_output();
-    const auto& chunk = table->get_chunk(ChunkID(0));
-    const auto segment_0 = chunk.get_segment(ColumnID(0));
-    const auto reference_segment_0 = std::dynamic_pointer_cast<ReferenceSegment>(segment_0);
-    const auto pos_list_0 = reference_segment_0->pos_list();
-
-    EXPECT_EQ(table->chunk_count(), 1);
-    EXPECT_EQ(reference_segment_0->size(), 1);
-    EXPECT_EQ((*reference_segment_0)[0], AllTypeVariant(1234));
-    EXPECT_EQ(pos_list_0->at(0), RowID(ChunkID(1), ChunkOffset(0)));
-  }
 
   EXPECT_TABLE_EQ(scan_2->get_output(), expected_result);
 }

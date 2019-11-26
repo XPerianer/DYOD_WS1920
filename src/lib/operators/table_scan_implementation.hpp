@@ -123,31 +123,27 @@ class TableScanImplementation : public TableScanBaseImplementation {
     bool _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely = true;
 
     std::unordered_map<ChunkID, DictionarySegmentProcessingFlags> referenced_dictionary_segment_flags;
-    std::unordered_map<ChunkID, const std::vector<T>&> referenced_value_segment_vectors;
     std::unordered_map<ChunkID, std::shared_ptr<const BaseAttributeVector>> referenced_dictionary_segment_vectors;
+    std::unordered_map<ChunkID, std::shared_ptr<ValueSegment<T>>> referenced_value_segments;
 
     for (const auto& referenced_chunk_id : unique_referenced_chunk_ids) {
-      std::cout << "referenced_chunk_id " << referenced_chunk_id << std::endl;
       const Chunk& referenced_chunk = referenced_table->get_chunk(referenced_chunk_id);
       const auto referenced_segment = referenced_chunk.get_segment(referenced_column_id);
       const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
 
       if (referenced_dictionary_segment != nullptr) {
-        std::cout << "dictionary segment" << std::endl;
         const DictionarySegmentProcessingFlags flags(referenced_dictionary_segment, _scan_type, _typed_search_value);
         referenced_dictionary_segment_flags.insert(std::make_pair(referenced_chunk_id, flags));
         referenced_dictionary_segment_vectors[referenced_chunk_id] = referenced_dictionary_segment->attribute_vector();
 
         _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely &= flags.add_all;
       } else {
-        std::cout << "no dictionary segment" << std::endl;
         _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely = false;
 
         const auto referenced_value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(referenced_segment);
         DebugAssert(referenced_value_segment != nullptr,
                     "Unhandled segment type in _process_segment for ReferenceSegments");
-        referenced_value_segment_vectors.insert(
-            std::make_pair(referenced_chunk_id, referenced_value_segment->values()));
+        referenced_value_segments.insert(std::make_pair(referenced_chunk_id, referenced_value_segment));
       }
     }
 
@@ -185,11 +181,11 @@ class TableScanImplementation : public TableScanBaseImplementation {
         continue;
       }
 
-      const auto value_vector_it = referenced_value_segment_vectors.find(row_id.chunk_id);
-      DebugAssert(value_vector_it != referenced_value_segment_vectors.end(),
+      const auto value_segment_it = referenced_value_segments.find(row_id.chunk_id);
+      DebugAssert(value_segment_it != referenced_value_segments.end(),
                   "Unhandled segment type in _process_segment for ReferenceSegment");
-      if (_scan_type_comparator(value_vector_it->second[row_id.chunk_offset])) {
-        std::cout << "added chunk_offset " << row_ids_index << std::endl;
+      const auto& value_vector = value_segment_it->second->values();
+      if (_scan_type_comparator(value_vector[row_id.chunk_offset])) {
         _chunk_offsets_to_add_to_result_table.push_back(row_ids_index);
       }
     }
@@ -209,6 +205,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
     // Will be lazily initialized if required
     std::shared_ptr<PosList> pos_list_for_value_and_dictionary_segment;
 
+    std::unordered_map<std::shared_ptr<const PosList>, std::shared_ptr<PosList>> source_pos_list_to_result_pos_list;
+
     for (ColumnID column_id = ColumnID(0); column_id < column_count; ++column_id) {
       const auto source_segment = source_chunk.get_segment(column_id);
       std::shared_ptr<ReferenceSegment> result_segment;
@@ -216,27 +214,31 @@ class TableScanImplementation : public TableScanBaseImplementation {
       const auto reference_source_segment = std::dynamic_pointer_cast<ReferenceSegment>(source_segment);
       if (reference_source_segment != nullptr) {
         if (_add_all_chunk_offsets) {
-          std::cout << "Adding all chunk offsets of refernce segment by copying position list" << std::endl;
           // If we need to add all values of the source pos_list, we can just reference the same list.
           result_segment = std::make_shared<ReferenceSegment>(reference_source_segment->referenced_table(),
                                                               reference_source_segment->referenced_column_id(),
                                                               reference_source_segment->pos_list());
         } else {
-          std::cout << "Chunk offsets of refernce segment by building new position list" << std::endl;
-          std::cout << "chunk_id " << chunk_id << std::endl;
-          // TODO (anyone): Cache these instances per (table, source_pos_list) pair
-          // TODO (anyone): Fix duplication here and in the else path
-          auto pos_list = std::make_shared<PosList>();
-          pos_list->reserve(_chunk_offsets_to_add_to_result_table.size());
+          // We need to filter out some or all values. But, maybe for another segment that shared the
+          // same PosList we already computed the resulting PosList for the new Segment.
+          const auto source_pos_list_ptr = reference_source_segment->pos_list();
 
-          const auto& source_pos_list = *(reference_source_segment->pos_list());
-          std::cout << "Adding " << _chunk_offsets_to_add_to_result_table.size() << " RowIDs" << std::endl;
-          for (const ChunkOffset chunk_offset : _chunk_offsets_to_add_to_result_table) {
-            pos_list->emplace_back(source_pos_list[chunk_offset]);
+          auto result = source_pos_list_to_result_pos_list.insert(std::make_pair(source_pos_list_ptr, std::make_shared<PosList>()));
+          auto pos_list_ptr = result.first->second;
+          auto& pos_list = *pos_list_ptr;
+
+          if (result.second) {
+            // The new PosList was inserted. We have to initialize it.
+            pos_list.reserve(_chunk_offsets_to_add_to_result_table.size());
+
+            const auto& source_pos_list = *(reference_source_segment->pos_list());
+            for (const ChunkOffset chunk_offset : _chunk_offsets_to_add_to_result_table) {
+              pos_list.emplace_back(source_pos_list[chunk_offset]);
+            }
           }
 
           result_segment = std::make_shared<ReferenceSegment>(
-              reference_source_segment->referenced_table(), reference_source_segment->referenced_column_id(), pos_list);
+              reference_source_segment->referenced_table(), reference_source_segment->referenced_column_id(), pos_list_ptr);
         }
       } else {
         if (pos_list_for_value_and_dictionary_segment == nullptr) {
