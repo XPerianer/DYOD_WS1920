@@ -88,12 +88,13 @@ class TableScanImplementation : public TableScanBaseImplementation {
       return;
     }
 
-    const auto& attribute_vector = *(segment->attribute_vector());
-    size_t attribute_vector_size = attribute_vector.size();
 
     if (flags.add_all) {
       _add_all_chunk_offsets = true;
     } else {
+      const auto& attribute_vector = *(segment->attribute_vector());
+      size_t attribute_vector_size = attribute_vector.size();
+
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
         // This function call has some performance penalty (and we think the compiler won't optimize it)
         // But we think it's better than writing the same code 6 times. This should be benchmarked, though
@@ -126,17 +127,20 @@ class TableScanImplementation : public TableScanBaseImplementation {
     std::unordered_map<ChunkID, std::shared_ptr<const BaseAttributeVector>> referenced_dictionary_segment_vectors;
 
     for (const auto& referenced_chunk_id : unique_referenced_chunk_ids) {
+      std::cout << "referenced_chunk_id " << referenced_chunk_id << std::endl;
       const Chunk& referenced_chunk = referenced_table->get_chunk(referenced_chunk_id);
       const auto referenced_segment = referenced_chunk.get_segment(referenced_column_id);
       const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
 
       if (referenced_dictionary_segment != nullptr) {
+        std::cout << "dictionary segment" << std::endl;
         const DictionarySegmentProcessingFlags flags(referenced_dictionary_segment, _scan_type, _typed_search_value);
         referenced_dictionary_segment_flags.insert(std::make_pair(referenced_chunk_id, flags));
         referenced_dictionary_segment_vectors[referenced_chunk_id] = referenced_dictionary_segment->attribute_vector();
 
         _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely &= flags.add_all;
       } else {
+        std::cout << "no dictionary segment" << std::endl;
         _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely = false;
 
         const auto referenced_value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(referenced_segment);
@@ -157,9 +161,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
     // Iterate over all RowIDs in the pos_list of the segment, for each entry, add it to
     // _chunk_offsets_to_add_to_result_table if the row at this chunk offset should be
     // in the result table.
-    ChunkOffset chunk_size = segment->size();
-    for (ChunkOffset chunk_offset = 0; chunk_offset < chunk_size; ++chunk_offset) {
-      const RowID& row_id = pos_list[chunk_offset];
+    ChunkOffset row_ids_size = pos_list.size();
+    for (ChunkOffset row_ids_index = 0; row_ids_index < row_ids_size; ++row_ids_index) {
+      const RowID& row_id = pos_list[row_ids_index];
       const auto flags = referenced_dictionary_segment_flags.find(row_id.chunk_id);
 
       if (flags != referenced_dictionary_segment_flags.end()) {
@@ -168,15 +172,15 @@ class TableScanImplementation : public TableScanBaseImplementation {
         }
 
         if (flags->second.add_all) {
-          _chunk_offsets_to_add_to_result_table.push_back(chunk_offset);
+          _chunk_offsets_to_add_to_result_table.push_back(row_ids_index);
           continue;
         }
 
         const auto attribute_vector_it = referenced_dictionary_segment_vectors.find(row_id.chunk_id);
         DebugAssert(attribute_vector_it != referenced_dictionary_segment_vectors.end(),
                     "Generation of referenced_dictionary_segment_vectors is broken.");
-        if (flags->second.should_add_value_id(attribute_vector_it->second->get(chunk_offset))) {
-          _chunk_offsets_to_add_to_result_table.push_back(chunk_offset);
+        if (flags->second.should_add_value_id(attribute_vector_it->second->get(row_id.chunk_offset))) {
+          _chunk_offsets_to_add_to_result_table.push_back(row_ids_index);
         }
         continue;
       }
@@ -184,8 +188,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
       const auto value_vector_it = referenced_value_segment_vectors.find(row_id.chunk_id);
       DebugAssert(value_vector_it != referenced_value_segment_vectors.end(),
                   "Unhandled segment type in _process_segment for ReferenceSegment");
-      if (_scan_type_comparator(value_vector_it->second[chunk_offset])) {
-        _chunk_offsets_to_add_to_result_table.push_back(chunk_offset);
+      if (_scan_type_comparator(value_vector_it->second[row_id.chunk_offset])) {
+        std::cout << "added chunk_offset " << row_ids_index << std::endl;
+        _chunk_offsets_to_add_to_result_table.push_back(row_ids_index);
       }
     }
   }
@@ -211,17 +216,21 @@ class TableScanImplementation : public TableScanBaseImplementation {
       const auto reference_source_segment = std::dynamic_pointer_cast<ReferenceSegment>(source_segment);
       if (reference_source_segment != nullptr) {
         if (_add_all_chunk_offsets) {
+          std::cout << "Adding all chunk offsets of refernce segment by copying position list" << std::endl;
           // If we need to add all values of the source pos_list, we can just reference the same list.
           result_segment = std::make_shared<ReferenceSegment>(reference_source_segment->referenced_table(),
                                                               reference_source_segment->referenced_column_id(),
                                                               reference_source_segment->pos_list());
         } else {
+          std::cout << "Chunk offsets of refernce segment by building new position list" << std::endl;
+          std::cout << "chunk_id " << chunk_id << std::endl;
           // TODO (anyone): Cache these instances per (table, source_pos_list) pair
           // TODO (anyone): Fix duplication here and in the else path
           auto pos_list = std::make_shared<PosList>();
           pos_list->reserve(_chunk_offsets_to_add_to_result_table.size());
 
           const auto& source_pos_list = *(reference_source_segment->pos_list());
+          std::cout << "Adding " << _chunk_offsets_to_add_to_result_table.size() << " RowIDs" << std::endl;
           for (const ChunkOffset chunk_offset : _chunk_offsets_to_add_to_result_table) {
             pos_list->emplace_back(source_pos_list[chunk_offset]);
           }
