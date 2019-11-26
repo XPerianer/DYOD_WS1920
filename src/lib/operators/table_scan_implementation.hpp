@@ -68,7 +68,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
   }
 
   // -----------------
-  // These methods go through the segment and add all relevant values to the _current_pos_list
+  // These methods go through the segment and add all relevant values to _chunk_offsets_to_add_to_result_table
+  // OR set _add_all_chunk_offsets to prevent copying the whole list
   void _process_segment(std::shared_ptr<ValueSegment<T>> segment) {
     const auto& values = segment->values();
     const size_t values_size = values.size();
@@ -192,7 +193,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // Make a ReferenceSegment out of the current _chunk_offsets_to_add_to_result_table,
   // add it to the _result_table and clear the _chunk_offsets_to_add_to_result_table
   void _finish_current_chunk_offsets(ChunkID chunk_id, const Chunk& source_chunk) {
-    if (_chunk_offsets_to_add_to_result_table.size() == 0) {
+    if (_chunk_offsets_to_add_to_result_table.size() == 0 && !_add_all_chunk_offsets) {
       // Table has a empty chunk by default. Don't append a new (semi) empty chunk
       return;
     }
@@ -256,6 +257,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     _chunk_offsets_to_add_to_result_table.clear();
     _result_table->emplace_chunk(std::move(result_chunk));
+    _add_all_chunk_offsets = false;
   }
 
   std::function<bool(T)> _get_scan_type_comparator() {
