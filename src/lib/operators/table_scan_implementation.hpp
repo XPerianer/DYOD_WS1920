@@ -10,6 +10,22 @@
 #include "table_scan_base_implementation.hpp"
 #include "types.hpp"
 
+namespace {
+inline void _debug_assert_all_segments_have_same_indirection(const opossum::Chunk& chunk,
+                                                             bool should_be_reference_segments) {
+  // Checks whether all segments are either (DictionarySegment or ValueSegment) or ReferenceSegment
+  // Our code can currently not handle cases where these are mixed.
+  uint16_t column_count = chunk.column_count();
+  for (opossum::ColumnID column_id = opossum::ColumnID(0); column_id < column_count; ++column_id) {
+    const auto base_segment = chunk.get_segment(column_id);
+    const auto reference_segment_ptr = std::dynamic_pointer_cast<opossum::ReferenceSegment>(base_segment);
+    bool is_reference_segment = reference_segment_ptr != nullptr;
+    DebugAssert(is_reference_segment == should_be_reference_segments,
+                "Table scan called with chunk with mixed segments");
+  }
+}
+}  //unnamed namespace
+
 namespace opossum {
 template <typename T>
 class TableScanImplementation : public TableScanBaseImplementation {
@@ -25,7 +41,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
       _result_table->add_column(_table->column_name(column_id), _table->column_type(column_id));
     }
 
-    // TODO: Maybe we don't need this for DictionarySegments or ReferenceSegments?
     _scan_type_comparator = _get_scan_type_comparator();
   }
 
@@ -48,6 +63,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(segment);
     if (dictionary_segment) {
+      _debug_assert_all_segments_have_same_indirection(chunk, false);
       _set_referenced_table(_table);
       _process_segment(chunk_id, dictionary_segment);
       return;
@@ -55,6 +71,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
     if (reference_segment) {
+      _debug_assert_all_segments_have_same_indirection(chunk, true);
       _set_referenced_table(reference_segment->referenced_table());
       _process_segment(chunk_id, reference_segment);
       return;
@@ -62,12 +79,13 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
     const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(segment);
     if (value_segment) {
+      _debug_assert_all_segments_have_same_indirection(chunk, false);
       _set_referenced_table(_table);
       _process_segment(chunk_id, value_segment);
       return;
     }
 
-    throw std::logic_error("Missing handling for segment type");
+    throw std::logic_error("Unhandled segment type in _process_chunk");
   }
 
   // These methods go through the segment and add all relevant values to the
@@ -141,16 +159,52 @@ class TableScanImplementation : public TableScanBaseImplementation {
     const std::shared_ptr<const Table> referenced_table = segment->referenced_table();
     const auto& pos_list = (*segment->pos_list());
 
+    std::unordered_map<ChunkID, std::vector<ChunkOffset>> regrouped_tuples;
     for (const auto& rowId : pos_list) {
-      const Chunk& chunk = referenced_table->get_chunk(rowId.chunk_id);
-      std::shared_ptr<BaseSegment> referenced_segment = chunk.get_segment(referenced_column_id);
+      regrouped_tuples[rowId.chunk_id].push_back(rowId.chunk_offset);
+    }
 
-      // TODO: Not cool
-      const auto value = type_cast<T>((*referenced_segment)[rowId.chunk_offset]);
+    for (const auto& [referenced_chunk_id, chunk_offsets] : regrouped_tuples) {
+      const Chunk& chunk = referenced_table->get_chunk(referenced_chunk_id);
+      const auto referenced_segment = chunk.get_segment(referenced_column_id);
+      const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
+      if (referenced_dictionary_segment != nullptr) {
+        _update_current_pos_list_from_segment_offsets(referenced_chunk_id, referenced_dictionary_segment,
+                                                      chunk_offsets);
+        continue;
+      }
+
+      const auto referenced_value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(referenced_segment);
+      if (referenced_value_segment != nullptr) {
+        _update_current_pos_list_from_segment_offsets(referenced_chunk_id, referenced_value_segment, chunk_offsets);
+        continue;
+      }
+
+      // All segments this reference segment points to should be DictionarySegment or ValueSegment.
+      throw std::logic_error("Unhandled segment type in _process_segment for ReferenceSegment");
+    }
+  }
+
+  // TODO: Move this somewhere else?
+  void _update_current_pos_list_from_segment_offsets(ChunkID referenced_chunk_id,
+                                                     std::shared_ptr<ValueSegment<T>> referenced_value_segment,
+                                                     std::vector<ChunkOffset> chunk_offsets) {
+    const auto& values = referenced_value_segment->values();
+    auto& pos_list = *_current_pos_list;
+
+    for (ChunkOffset chunk_offset : chunk_offsets) {
+      const auto& value = values[chunk_offset];
       if (_scan_type_comparator(value)) {
-        _current_pos_list->push_back(rowId);
+        pos_list.emplace_back(referenced_chunk_id, chunk_offset);
       }
     }
+  }
+
+  // TODO: Move this somewhere else?
+  void _update_current_pos_list_from_segment_offsets(ChunkID referenced_chunk_id,
+                                                     std::shared_ptr<DictionarySegment<T>> referenced_value_segment,
+                                                     std::vector<ChunkOffset> chunk_offsets) {
+    throw std::logic_error("Implementation missing");
   }
 
   void _process_segment(ChunkID chunk_id, std::shared_ptr<ValueSegment<T>> segment) {
@@ -205,7 +259,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
     }
   }
 
-  // TODO: This is probably faster if we inline it
   std::function<bool(T)> _get_scan_type_comparator() {
     switch (_scan_type) {
       case ScanType::OpEquals:
@@ -224,7 +277,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
         return [&_typed_search_value = _typed_search_value](const T& val1) { return val1 >= _typed_search_value; };
     }
 
-    throw std::logic_error("Unhandled scan type");
+    throw std::logic_error("Unhandled scan type in _get_scan_type_comparator");
   }
 
   void _process_dictionary_segment_implementation(ChunkID chunk_id, std::shared_ptr<DictionarySegment<T>> segment,
