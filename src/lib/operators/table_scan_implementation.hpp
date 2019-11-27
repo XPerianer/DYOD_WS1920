@@ -95,8 +95,6 @@ class TableScanImplementation : public TableScanBaseImplementation {
       size_t attribute_vector_size = attribute_vector.size();
 
       for (size_t attribute_id = 0; attribute_id < attribute_vector_size; ++attribute_id) {
-        // This function call has some performance penalty (and we think the compiler won't optimize it)
-        // But we think it's better than writing the same code 6 times. This should be benchmarked, though
         if (flags.should_add_value_id(attribute_vector.get(attribute_id))) {
           _chunk_offsets_to_add_to_result_table.push_back(attribute_id);
         }
@@ -112,6 +110,9 @@ class TableScanImplementation : public TableScanBaseImplementation {
     // Build a map: chunk_id to DictionarySegmentProcessingFlags (contains an entry if chunk at rowId.chunk_id
     // is DictionarySegment). This is necessary so when we loop over all referenced values in the PosList,
     // we can quickly decide whether an entry needs to be added to the result set.
+    // Also we decided to keep pointers to the relevant BaseAttributeVector and ValueSegments for each chunk_id
+    // so we do not always have to do dynamic casting with RTTI.
+
     std::unordered_set<ChunkID> unique_referenced_chunk_ids;
     for (const auto& rowId : pos_list) {
       unique_referenced_chunk_ids.insert(rowId.chunk_id);
@@ -128,8 +129,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
     for (const auto& referenced_chunk_id : unique_referenced_chunk_ids) {
       const Chunk& referenced_chunk = referenced_table->get_chunk(referenced_chunk_id);
       const auto referenced_segment = referenced_chunk.get_segment(referenced_column_id);
-      const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
 
+      const auto referenced_dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<T>>(referenced_segment);
       if (referenced_dictionary_segment != nullptr) {
         const DictionarySegmentProcessingFlags flags(referenced_dictionary_segment, _scan_type, _typed_search_value);
         referenced_dictionary_segment_flags.insert(std::make_pair(referenced_chunk_id, flags));
@@ -137,12 +138,12 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
         _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely &= flags.add_all;
       } else {
-        _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely = false;
-
         const auto referenced_value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(referenced_segment);
         DebugAssert(referenced_value_segment != nullptr,
                     "Unhandled segment type in _process_segment for ReferenceSegments");
         referenced_value_segments.insert(std::make_pair(referenced_chunk_id, referenced_value_segment));
+
+        _all_referenced_segments_are_dictionary_segments_and_can_be_added_completely = false;
       }
     }
 
@@ -154,8 +155,8 @@ class TableScanImplementation : public TableScanBaseImplementation {
     }
 
     // Iterate over all RowIDs in the pos_list of the segment, for each entry, add it to
-    // _chunk_offsets_to_add_to_result_table if the row at this chunk offset should be
-    // in the result table.
+    // _chunk_offsets_to_add_to_result_table if the row at this offset in our source segment
+    // should be in the result table.
     ChunkOffset row_ids_size = pos_list.size();
     for (ChunkOffset row_ids_index = 0; row_ids_index < row_ids_size; ++row_ids_index) {
       const RowID& row_id = pos_list[row_ids_index];
@@ -163,14 +164,18 @@ class TableScanImplementation : public TableScanBaseImplementation {
 
       if (flags != referenced_dictionary_segment_flags.end()) {
         if (flags->second.add_none) {
+          // We already know for this dictionary segment that no values can match our search
           continue;
         }
 
         if (flags->second.add_all) {
+          // We already know for this dictionary segment that all values can match our search
           _chunk_offsets_to_add_to_result_table.push_back(row_ids_index);
           continue;
         }
 
+        // We have to compare the ValueIDs the attribute vector holds to know whether
+        // this row_id entry must be added to the result
         const auto attribute_vector_it = referenced_dictionary_segment_vectors.find(row_id.chunk_id);
         DebugAssert(attribute_vector_it != referenced_dictionary_segment_vectors.end(),
                     "Generation of referenced_dictionary_segment_vectors is broken.");
@@ -180,6 +185,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
         continue;
       }
 
+      // For value segments, we can't optimize efficiently -> just check the value
       const auto value_segment_it = referenced_value_segments.find(row_id.chunk_id);
       DebugAssert(value_segment_it != referenced_value_segments.end(),
                   "Unhandled segment type in _process_segment for ReferenceSegment");
@@ -194,7 +200,7 @@ class TableScanImplementation : public TableScanBaseImplementation {
   // add it to the _result_table and clear the _chunk_offsets_to_add_to_result_table
   void _finish_current_chunk_offsets(ChunkID chunk_id, const Chunk& source_chunk) {
     if (_chunk_offsets_to_add_to_result_table.size() == 0 && !_add_all_chunk_offsets) {
-      // Table has a empty chunk by default. Don't append a new (semi) empty chunk
+      // Table has a empty chunk by default. Don't append a new empty chunk
       return;
     }
 
