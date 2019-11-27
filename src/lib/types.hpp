@@ -38,6 +38,8 @@ using ChunkOffset = uint32_t;
 using AttributeVectorWidth = uint8_t;
 
 struct RowID {
+  RowID(const ChunkID& chunk_id, const ChunkOffset& chunk_offset) : chunk_id(chunk_id), chunk_offset(chunk_offset) {}
+
   ChunkID chunk_id;
   ChunkOffset chunk_offset;
 

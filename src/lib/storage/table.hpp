@@ -90,7 +90,7 @@ class Table : private Noncopyable {
 
  protected:
   std::vector<Chunk> _chunks;
-  mutable std::mutex _chunks_mutex;
+  std::unique_ptr<std::mutex> _chunks_mutex;
 
   std::vector<std::string> _column_names;
   std::vector<std::string> _column_types;

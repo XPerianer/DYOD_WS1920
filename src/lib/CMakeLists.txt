@@ -6,6 +6,7 @@ set(
     operators/abstract_operator.cpp
     operators/abstract_operator.hpp
     operators/get_table.hpp
+    operators/get_table.cpp
     operators/print.cpp
     operators/print.hpp
     operators/table_scan.hpp
@@ -17,6 +18,7 @@ set(
     storage/chunk.hpp
     storage/dictionary_segment.hpp
     storage/reference_segment.hpp
+    storage/reference_segment.cpp
     storage/fixed_size_attribute_vector.hpp
     storage/storage_manager.cpp
     storage/storage_manager.hpp
@@ -38,7 +40,7 @@ set(
 )
 
 # Configure the regular hyrise library used for tests/server/playground...
-add_library(hyrise STATIC ${SOURCES})
+add_library(hyrise STATIC ${SOURCES} operators/table_scan.cpp)
 target_link_libraries(hyrise ${LIBRARIES})
 
 # Configure the lib used for sanitizers
